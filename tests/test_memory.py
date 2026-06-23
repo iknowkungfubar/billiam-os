@@ -13,13 +13,9 @@ Tests the JSON-persistent memory system for:
 import json
 import os
 import tempfile
-from pathlib import Path
-
-import pytest
 
 from core.memory import (
     AssistantMemoryLayer,
-    DEFAULT_MEMORY_SCHEMA,
 )
 
 
@@ -73,7 +69,7 @@ class TestAssistantMemoryLayer:
         assert memory.get_user_name() == "Alice"
 
         # Verify on disk
-        with open(self.memory_path, "r") as f:
+        with open(self.memory_path) as f:
             data = json.load(f)
         assert data["user_identity"]["name"] == "Alice"
 
@@ -192,7 +188,7 @@ class TestAssistantMemoryLayer:
         """Context summary must include assistant name."""
         memory = AssistantMemoryLayer(storage_path=self.memory_path)
         summary = memory.get_context_summary()
-        assert "Aura" in summary
+        assert "Billiam" in summary
 
     # ── Reset ─────────────────────────────────────────────────────────────
 

@@ -2,64 +2,65 @@
 core/ai_core.py
 Billiam OS — AI Core Orchestrator Daemon
 
-The central brain of Billiam OS. It orchestrates the voice-controlled,
+The central brain of Billiam OS. Orchestrates the voice-controlled,
 agent-driven personal digital assistant loop:
 
     1. Accept user input (text or speech-to-text transcript)
-    2. Inject memory context into system prompt
+    2. Inject memory context + Billiam persona into system prompt
     3. Send to local LLM (llama.cpp / OpenVINO) via OpenAI-compatible API
     4. Parse TOOL: commands from the LLM response
     5. Execute commands through the Guardrail Sandbox
     6. Feed results back to LLM for natural language summarization
-    7. Deliver response (text, or route to TTS)
+    7. Deliver response (text or TTS via British butler voice)
 
 Architecture:
     - Runs as a systemd user service for autostart on boot
     - Stateless LLM calls with stateful memory layer
     - Three-layer guardrail system for command safety
-    - Hotkey integration with window manager (i3/Hyprland)
+    - Voice input via STT (faster-whisper) + wake word
+    - Voice output via TTS (edge-tts British voice)
+    - Hotkey integration with window manager
 """
 
-import os
-import sys
-import json
 import logging
-from typing import Optional
 
 from openai import OpenAI
 
+from .billiam import (
+    BILLIAM_PROFILE,
+    get_catchphrase,
+    system_prompt_injection,
+)
+from .config import get_config_value, load_config
 from .memory import AssistantMemoryLayer
-from .sandbox import SecureExecutionSandbox, GuardrailException
+from .sandbox import GuardrailException, SecureExecutionSandbox
 
 # ── Configuration ────────────────────────────────────────────────────────────
-DEFAULT_LLM_API_BASE = os.environ.get(
-    "BILLIAM_API_BASE", "http://localhost:8080/v1"
-)
-DEFAULT_LLM_MODEL = os.environ.get(
-    "BILLIAM_MODEL", "qwen-2.5-coder-3b-instruct"
-)
-DEFAULT_SYSTEM_MEMORY_PATH = os.environ.get(
-    "BILLIAM_MEMORY_PATH", "~/.config/aios/memory.json"
-)
-DEFAULT_LLM_TEMPERATURE = float(os.environ.get("BILLIAM_TEMPERATURE", "0.2"))
-DEFAULT_LLM_MAX_TOKENS = int(
-    os.environ.get("BILLIAM_MAX_TOKENS", "512")
-)
+_CONFIG = load_config()
+DEFAULT_LLM_API_BASE = get_config_value(_CONFIG, "llm.api_base")
+DEFAULT_LLM_MODEL = get_config_value(_CONFIG, "llm.model")
+DEFAULT_SYSTEM_MEMORY_PATH = get_config_value(_CONFIG, "memory.storage_path")
+DEFAULT_LLM_TEMPERATURE = float(get_config_value(_CONFIG, "llm.temperature"))
+DEFAULT_LLM_MAX_TOKENS = int(get_config_value(_CONFIG, "llm.max_tokens"))
 
 # Logging setup
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
+    level=get_config_value(_CONFIG, "logging.level", "INFO"),
+    format=get_config_value(
+        _CONFIG,
+        "logging.format",
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    ),
 )
-logger = logging.getLogger("billiam")
+logger = logging.getLogger("billiam.core")
 
 
 class AICore:
     """The central orchestration engine for Billiam OS.
 
     Manages the complete interaction loop:
-    memory → LLM inference → tool parsing → guardrail execution → response.
+    memory → Billiam persona → LLM inference → tool parsing
+    → guardrail execution → response (text or TTS).
 
     Usage:
         core = AICore()
@@ -74,6 +75,8 @@ class AICore:
         memory_path: str = DEFAULT_SYSTEM_MEMORY_PATH,
         temperature: float = DEFAULT_LLM_TEMPERATURE,
         max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+        enable_tts: bool = False,
+        enable_stt: bool = False,
     ):
         """Initialize the AI Core with all subsystems.
 
@@ -83,15 +86,28 @@ class AICore:
             memory_path: Path to the persistent memory JSON file.
             temperature: LLM temperature for response generation.
             max_tokens: Maximum tokens in LLM response.
+            enable_tts: Enable Text-to-Speech (British butler voice).
+            enable_stt: Enable Speech-to-Text (wake word + voice commands).
         """
         self.api_base = api_base
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.enable_tts = enable_tts
+        self.enable_stt = enable_stt
+
+        self.assistant_name = BILLIAM_PROFILE["name"]
 
         # Initialize subsystems
         self.memory = AssistantMemoryLayer(storage_path=memory_path)
         self.sandbox = SecureExecutionSandbox()
+
+        # Initialize TTS/STT (lazy, only if enabled)
+        self._tts = None
+        self._stt = None
+        self._audio_daemon = None
+        if enable_tts or enable_stt:
+            self._init_voice()
 
         # Initialize LLM client
         self.client = OpenAI(
@@ -103,46 +119,54 @@ class AICore:
         self.conversation_history = []
 
         logger.info(
-            "AICore initialized (model=%s, api=%s, user=%s)",
+            "%s initialized (model=%s, api=%s, tts=%s, stt=%s)",
+            self.assistant_name,
             self.model,
             self.api_base,
-            self.memory.get_user_name(),
+            enable_tts,
+            enable_stt,
         )
 
+    def _init_voice(self) -> None:
+        """Initialize voice subsystems (TTS/STT/audio)."""
+        try:
+            from .audio import AudioDaemon
+            from .stt import STTModule
+            from .tts import TTSModule
+
+            if self.enable_tts:
+                self._tts = TTSModule(
+                    voice=BILLIAM_PROFILE["voice"]["voice_id"],
+                )
+                if not self._tts.is_available:
+                    logger.warning("TTS module initialized but no backend available.")
+
+            if self.enable_stt:
+                self._stt = STTModule(
+                    model_size="base",
+                    wake_words=[BILLIAM_PROFILE["wake_word"]],
+                )
+
+            if self.enable_tts or self.enable_stt:
+                self._audio_daemon = AudioDaemon(
+                    stt_model_size="base" if self.enable_stt else None,
+                    tts_voice=BILLIAM_PROFILE["voice"]["voice_id"] if self.enable_tts else None,
+                    wake_word_required=True,
+                )
+
+        except ImportError as e:
+            logger.warning("Voice modules not available: %s", e)
+
     def _build_system_prompt(self) -> str:
-        """Build the system prompt with dynamic memory context injection.
+        """Build the system prompt with Billiam persona + memory context.
 
         Returns:
             The compiled system prompt string.
         """
-        user_name = self.memory.get_user_name()
         context = self.memory.get_context_summary()
+        return system_prompt_injection(memory_summary=context)
 
-        return f"""You are {self.memory.memory['assistant_profile']['name']}, a Personalized Digital Assistant running directly on the user's Linux machine.
-
-SYSTEM CONTEXT:
-{context}
-
-CAPABILITIES:
-You can interact with the Linux operating system directly using system tools.
-If the user asks you to perform an action (e.g., check system stats, create files, list files, run commands), output a system tool call exactly like this:
-
-TOOL: [your bash command here]
-
-Only output ONE tool call at a time. After you receive the tool output, formulate your final spoken response.
-
-SAFETY RULES:
-- Never execute rm -rf or destructive commands
-- Never modify system files outside /home
-- Ask for confirmation before installing packages
-- If you're unsure about a command, ask the user to clarify
-
-Keep responses concise, helpful, and assistant-centric.
-"""
-
-    def _run_llm_inference(
-        self, messages: list, temperature: Optional[float] = None
-    ) -> str:
+    def _run_llm_inference(self, messages: list, temperature: float | None = None) -> str:
         """Run a single LLM inference call.
 
         Args:
@@ -163,9 +187,13 @@ Keep responses concise, helpful, and assistant-centric.
             return content.strip()
         except Exception as e:
             logger.error("LLM inference failed: %s", e)
-            return f"Error: Failed to reach LLM backend at {self.api_base}. Is llama-server running?"
+            return (
+                f"I do apologise, sir, but I seem unable to reach my "
+                f"inference engine at {self.api_base}. "
+                f"Would you kindly ensure llama-server is running?"
+            )
 
-    def _parse_tool_call(self, ai_output: str) -> Optional[str]:
+    def _parse_tool_call(self, ai_output: str) -> str | None:
         """Extract a TOOL: command from the LLM output.
 
         Args:
@@ -188,7 +216,6 @@ Keep responses concise, helpful, and assistant-centric.
                     return command
         return None
 
-
     def _handle_tool_execution(self, command: str) -> str:
         """Execute a tool command through the guardrail sandbox.
 
@@ -203,9 +230,9 @@ Keep responses concise, helpful, and assistant-centric.
         """
         # Layer 3: Check for privileged operations requiring confirmation
         if self.sandbox.check_privileged(command):
-            print(f"\n⚠️  PRIVILEGED ACTION: The assistant wants to run:")
+            print(f"\n⚠️  {self.assistant_name} wants to execute a privileged command:")
             print(f"    `{command}`")
-            print(f"    Type 'y' to allow, anything else to block: ", end="")
+            print("    Type 'y' to allow, anything else to block: ", end="")
             try:
                 choice = input().strip().lower()
                 if choice != "y":
@@ -228,16 +255,27 @@ Keep responses concise, helpful, and assistant-centric.
         except GuardrailException as e:
             return str(e)
 
+    def _speak_response(self, text: str) -> None:
+        """Speak the response via TTS if enabled.
+
+        Args:
+            text: Text to speak.
+        """
+        if self._tts and self.enable_tts:
+            self._tts.speak_async(text)
+
     def process_input(self, user_input: str) -> str:
         """Process a single user input through the full AI orchestration loop.
 
         The flow:
-        1. Build system prompt with memory context
-        2. Run LLM inference
-        3. Parse and execute any tool calls through the sandbox
-        4. If tool was called, run a second LLM inference for response synthesis
-        5. Record interaction in memory
-        6. Return the final response
+        1. Acknowledge receipt
+        2. Build system prompt with Billiam persona + memory context
+        3. Run LLM inference
+        4. Parse and execute any tool calls through the sandbox
+        5. If tool was called, run a second LLM inference for response synthesis
+        6. Record interaction in memory
+        7. Speak response via TTS if enabled
+        8. Return the final response
 
         Args:
             user_input: The user's text input.
@@ -252,7 +290,7 @@ Keep responses concise, helpful, and assistant-centric.
         messages = [{"role": "system", "content": system_prompt}]
 
         # Include recent conversation history for context
-        messages.extend(self.conversation_history[-6:])  # Last 3 turns
+        messages.extend(self.conversation_history[-6:])
 
         # Add current user input
         messages.append({"role": "user", "content": user_input})
@@ -267,40 +305,33 @@ Keep responses concise, helpful, and assistant-centric.
             logger.info("Tool call detected: %s", tool_command)
             tool_result = self._handle_tool_execution(tool_command)
 
-            # Feed tool result back for response synthesis
+            # Feed tool result back to LLM for response synthesis
             messages.append({"role": "assistant", "content": ai_output})
-            messages.append(
-                {"role": "user", "content": f"TOOL RESULT:\n{tool_result}"}
-            )
+            messages.append({"role": "user", "content": f"TOOL RESULT:\n{tool_result}"})
 
             logger.info("Running response synthesis...")
-            final_response = self._run_llm_inference(
-                messages, temperature=0.5
-            )
+            final_response = self._run_llm_inference(messages, temperature=0.5)
 
-            # ── Step 4: Record interaction ──
-            self.memory.record_interaction(
-                user_input, f"{ai_output}\n→ {final_response}"
-            )
+            # Record interaction
+            self.memory.record_interaction(user_input, f"{ai_output}\n→ {final_response}")
 
             # Update conversation history
-            self.conversation_history.append(
-                {"role": "user", "content": user_input}
-            )
-            self.conversation_history.append(
-                {"role": "assistant", "content": final_response}
-            )
+            self.conversation_history.append({"role": "user", "content": user_input})
+            self.conversation_history.append({"role": "assistant", "content": final_response})
+
+            # Speak response if TTS enabled
+            self._speak_response(final_response)
 
             return final_response
         else:
             # Standard chat response (no tool execution)
             self.memory.record_interaction(user_input, ai_output)
-            self.conversation_history.append(
-                {"role": "user", "content": user_input}
-            )
-            self.conversation_history.append(
-                {"role": "assistant", "content": ai_output}
-            )
+            self.conversation_history.append({"role": "user", "content": user_input})
+            self.conversation_history.append({"role": "assistant", "content": ai_output})
+
+            # Speak response if TTS enabled
+            self._speak_response(ai_output)
+
             return ai_output
 
     def run_interactive(self) -> None:
@@ -309,21 +340,23 @@ Keep responses concise, helpful, and assistant-centric.
         This is the primary entry point for testing and daily use.
         Type 'exit' or 'quit' to stop. Ctrl+C also works.
         """
-        assistant_name = self.memory.memory["assistant_profile"]["name"]
-
-        print(f"\n{'='*60}")
-        print(f"  {assistant_name} — Billiam OS AI Assistant")
+        print(f"\n{'=' * 60}")
+        print(f"  {self.assistant_name} — Your Personal Digital Butler")
         print(f"  Model: {self.model}")
         print(f"  Backend: {self.api_base}")
         print(f"  User: {self.memory.get_user_name()}")
-        print(f"{'='*60}")
-        print(f"  Type your request below.")
-        print(f"  Examples:")
-        print(f"    • 'What is my current RAM usage?'")
-        print(f"    • 'Create a todo list file on my desktop'")
-        print(f"    • 'How much disk space do I have left?'")
-        print(f"  Type 'exit' or 'quit' to stop.")
-        print(f"{'='*60}\n")
+        print(f"  TTS: {'Enabled (British voice)' if self.enable_tts else 'Disabled'}")
+        print(f"  STT: {'Enabled (wake word)' if self.enable_stt else 'Disabled'}")
+        print(f"{'=' * 60}")
+        print("  Type your request below, or speak to me if voice is enabled.")
+        print("  Examples:")
+        print("    • 'What is my current RAM usage?'")
+        print("    • 'Create a todo list file on my desktop'")
+        print("    • 'How much disk space do I have left?'")
+        print("  Type 'exit' or 'quit' to stop.")
+        print(f"{'=' * 60}\n")
+
+        print(f"{self.assistant_name}: {get_catchphrase('welcome')}\n")
 
         while True:
             try:
@@ -331,15 +364,17 @@ Keep responses concise, helpful, and assistant-centric.
                 if not user_in:
                     continue
                 if user_in.lower() in ("exit", "quit", "/exit", "/quit"):
-                    print(f"\n{assistant_name}: Goodbye!")
+                    farewell = get_catchphrase("farewell")
+                    print(f"\n{self.assistant_name}: {farewell}")
+                    self._speak_response(farewell)
                     break
 
-                print(f"\n🧠  {assistant_name} is thinking...")
+                print(f"\n🧠  {self.assistant_name} is thinking...")
                 response = self.process_input(user_in)
-                print(f"\n🗣️  {assistant_name}: {response}\n")
+                print(f"\n🗣️  {self.assistant_name}: {response}\n")
 
             except KeyboardInterrupt:
-                print(f"\n\n{assistant_name}: Goodbye!")
+                print(f"\n\n{self.assistant_name}: {get_catchphrase('farewell')}")
                 break
             except EOFError:
                 break
@@ -360,18 +395,19 @@ Keep responses concise, helpful, and assistant-centric.
 
 # ── CLI Entry Point ──────────────────────────────────────────────────────────
 
+
 def main():
     """CLI entry point for the Billiam OS AI Core.
 
     Usage:
         python -m core.ai_core              # Interactive mode
         python -m core.ai_core --once "..."  # Single request
-        python -m core.ai_core --daemon      # Daemon mode (future)
+        python -m core.ai_core --voice      # Voice-enabled interactive mode
     """
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Billiam OS — AI Core Orchestrator Daemon"
+        description=f"{BILLIAM_PROFILE['name']} OS — AI Core Orchestrator",
     )
     parser.add_argument(
         "--once",
@@ -380,9 +416,15 @@ def main():
         default=None,
     )
     parser.add_argument(
-        "--daemon",
+        "--voice",
+        "--tts",
         action="store_true",
-        help="Run as a persistent daemon (future)",
+        help="Enable voice output (British butler TTS)",
+    )
+    parser.add_argument(
+        "--stt",
+        action="store_true",
+        help="Enable speech-to-text (wake word + voice commands)",
     )
     parser.add_argument(
         "--api-base",
@@ -396,6 +438,11 @@ def main():
         default=DEFAULT_LLM_MODEL,
         help="LLM model name",
     )
+    parser.add_argument(
+        "--daemon",
+        action="store_true",
+        help="Run as a persistent daemon",
+    )
 
     args = parser.parse_args()
 
@@ -403,18 +450,19 @@ def main():
     core = AICore(
         api_base=args.api_base,
         model=args.model,
+        enable_tts=args.voice or args.daemon,
+        enable_stt=args.stt or args.daemon,
     )
 
     if args.once:
-        # Single-shot mode
         response = core.run_once(args.once)
         print(response)
     elif args.daemon:
-        # Daemon mode (future: add audio capture, wake word, etc.)
-        print("Daemon mode not yet implemented. Starting interactive mode...")
+        print(f"{core.assistant_name} OS Daemon starting...")
+        if core._audio_daemon:
+            core._audio_daemon.start()
         core.run_interactive()
     else:
-        # Interactive mode
         core.run_interactive()
 
 

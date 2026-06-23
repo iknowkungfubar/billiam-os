@@ -17,19 +17,19 @@ import copy
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Default memory schema used on first initialization
-DEFAULT_MEMORY_SCHEMA: Dict[str, Any] = {
+DEFAULT_MEMORY_SCHEMA: dict[str, Any] = {
     "user_identity": {
         "name": "Developer",
         "role": "System Operator",
         "preferences": {},
     },
     "assistant_profile": {
-        "name": "Aura",
-        "modality": "FOSS AI-OS Core",
-        "personality": "Helpful, concise, safety-conscious",
+        "name": "Billiam",
+        "modality": "FOSS AI-OS Core — Your Personal Digital Butler",
+        "personality": "Impeccably polite British butler. Courteous, efficient, and safety-conscious.",
     },
     "cached_system_facts": {},
     "interaction_history_tokens": [],
@@ -65,7 +65,7 @@ class AssistantMemoryLayer:
         os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
         self.memory = self._load_from_disk()
 
-    def _load_from_disk(self) -> Dict[str, Any]:
+    def _load_from_disk(self) -> dict[str, Any]:
         """Load memory from disk, initializing defaults if file doesn't exist.
 
         Returns:
@@ -79,7 +79,7 @@ class AssistantMemoryLayer:
             return schema
 
         try:
-            with open(self.storage_path, "r") as stream:
+            with open(self.storage_path) as stream:
                 data = json.load(stream)
             # Update last_seen timestamp
             data["session_metadata"]["last_seen"] = self._now_iso()
@@ -93,7 +93,7 @@ class AssistantMemoryLayer:
             self._save_to_disk(schema)
             return schema
 
-    def _save_to_disk(self, data: Optional[Dict[str, Any]] = None) -> None:
+    def _save_to_disk(self, data: dict[str, Any] | None = None) -> None:
         """Persist memory state to disk.
 
         Args:
@@ -127,7 +127,7 @@ class AssistantMemoryLayer:
         return self.memory["user_identity"]["name"]
 
     def set_user_info(
-        self, name: Optional[str] = None, role: Optional[str] = None
+        self, name: str | None = None, role: str | None = None
     ) -> None:
         """Update user identity information.
 
@@ -188,7 +188,7 @@ class AssistantMemoryLayer:
 
         self._save_to_disk()
 
-    def get_recent_interactions(self, count: int = 5) -> List[Dict[str, str]]:
+    def get_recent_interactions(self, count: int = 5) -> list[dict[str, str]]:
         """Get the most recent interaction entries.
 
         Args:
@@ -206,7 +206,7 @@ class AssistantMemoryLayer:
         self.memory["session_metadata"]["last_seen"] = self._now_iso()
         self._save_to_disk()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Export full memory state as a dictionary."""
         return self.memory
 

@@ -13,9 +13,7 @@ All commands run through subprocess with strict timeout and resource limits.
 """
 
 import re
-import shlex
 import subprocess
-from typing import Tuple
 
 # ── Layer 1: Banned Expression Patterns ──────────────────────────────────────
 # These patterns are EXPLICITLY blocked regardless of context.
@@ -122,7 +120,7 @@ class SecureExecutionSandbox:
 
     def execute_safely(
         self, command: str, timeout: int = 20
-    ) -> Tuple[int, str, str]:
+    ) -> tuple[int, str, str]:
         """Execute a shell instruction through the sandbox.
 
         Args:

@@ -9,11 +9,11 @@ Tests the three-layer guardrail system:
 """
 
 import pytest
+
 from core.sandbox import (
-    SecureExecutionSandbox,
-    GuardrailException,
     BANNED_EXPRESSIONS,
-    PRIVILEGED_TRIGGERS,
+    GuardrailException,
+    SecureExecutionSandbox,
 )
 
 

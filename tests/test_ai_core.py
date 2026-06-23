@@ -9,15 +9,10 @@ Tests the main orchestration layer:
 - Error handling when LLM backend is unreachable
 """
 
-import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
-
-import pytest
 
 from core.ai_core import AICore
-from core.sandbox import GuardrailException
 
 
 class TestAICoreInit:
@@ -55,7 +50,7 @@ class TestSystemPrompt:
     def teardown_method(self, method):
         import shutil
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
-    
+
     def test_system_prompt_contains_user_name(self):
         """System prompt must include user name from memory."""
         self.core.memory.set_user_info(name="Alice")
@@ -65,7 +60,7 @@ class TestSystemPrompt:
     def test_system_prompt_contains_assistant_name(self):
         """System prompt must include assistant profile name."""
         prompt = self.core._build_system_prompt()
-        assert "Aura" in prompt
+        assert "Billiam" in prompt
 
     def test_system_prompt_contains_tool_instructions(self):
         """System prompt must include TOOL: format instruction."""
@@ -89,7 +84,7 @@ class TestToolParsing:
     def teardown_method(self, method):
         import shutil
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
-    
+
     def test_parse_simple_tool_call(self):
         """Parse a standard TOOL: command."""
         result = self.core._parse_tool_call("TOOL: df -h")
@@ -138,13 +133,14 @@ class TestProcessInput:
     def teardown_method(self, method):
         import shutil
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
-    
+
     def test_llm_unreachable_returns_error(self):
-        """When the LLM backend is unreachable, return a helpful error."""
+        """When the LLM backend is unreachable, Billiam must apologise gracefully."""
         result = self.core.process_input("Hello")
-        # The process_input should handle the connection error gracefully
-        assert "Failed to reach LLM backend" in result
-        assert "Is llama-server running?" in result
+        # Billiam speaks in character when the backend is down
+        assert "apologise" in result.lower() or "apologies" in result.lower()
+        assert "inference engine" in result.lower()
+        assert "llama-server" in result.lower()
 
     def test_conversation_history_grows(self):
         """Each process_input must add to conversation history."""
@@ -175,7 +171,7 @@ class TestHandleToolExecution:
     def teardown_method(self, method):
         import shutil
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
-    
+
     def test_execute_safe_command(self):
         """Safe commands must execute and return output."""
         result = self.core._handle_tool_execution("echo 'hello world'")
