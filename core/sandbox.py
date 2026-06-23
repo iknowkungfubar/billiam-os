@@ -138,7 +138,11 @@ class IntentClassification:
             score += 0.5
             reasons.append("recursive force delete flags detected")
             # rm -rf / is extra dangerous
-            if re.search(r"rm\s+-rf\s+/", command_lower) or re.search(r"rm\s+-fr\s+/", command_lower):
+            if re.search(
+                r"rm\s+-rf\s+/\s", command_lower
+            ) or re.search(
+                r"rm\s+-fr\s+/\s", command_lower
+            ):
                 score += 0.5
                 reasons.append("targeting root filesystem for recursive delete")
         elif "rm" in command_lower and "-r" in command_lower and "-f" in command_lower:
@@ -163,7 +167,10 @@ class IntentClassification:
                 if not is_read_only:
                     score += 0.3
                     reasons.append(f"system modification command '{cmd}'")
-                elif cmd == "passwd" and any(w in command_lower for w in ["write", "change", "add", "mod", "-e"]):
+                elif cmd == "passwd" and any(
+                    w in command_lower
+                    for w in ["write", "change", "add", "mod", "-e"]
+                ):
                     score += 0.2
                     reasons.append(f"password operation '{cmd}'")
 

@@ -35,6 +35,8 @@ __all__ = [
     "AssistantMemoryLayer",
     "SecureExecutionSandbox",
     "GuardrailException",
+    "IntentClassification",
+    "SecureExecutionSandbox",
     "TTSModule",
     "STTModule",
     "AudioDaemon",

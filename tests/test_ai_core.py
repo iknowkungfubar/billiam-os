@@ -28,7 +28,7 @@ class TestAICoreInit:
 
     def test_init_creates_memory(self):
         """Initializing AI Core must create memory file."""
-        core = AICore(memory_path=self.memory_path)
+        AICore(memory_path=self.memory_path)
         assert os.path.exists(self.memory_path)
 
     def test_init_sets_defaults(self):

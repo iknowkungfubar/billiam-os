@@ -6,12 +6,13 @@ Tests the British butler personality profile and catchphrase system.
 """
 
 import pytest
+
 from core.billiam import (
     BILLIAM_PROFILE,
     CATCHPHRASES,
-    system_prompt_injection,
-    get_greeting,
     get_catchphrase,
+    get_greeting,
+    system_prompt_injection,
 )
 
 
@@ -89,7 +90,7 @@ class TestCatchphrases:
 
     def test_all_catchphrases_are_strings(self):
         """Every catchphrase must be a non-empty string."""
-        for category, phrases in CATCHPHRASES.items():
+        for _category, phrases in CATCHPHRASES.items():
             for phrase in phrases:
                 assert isinstance(phrase, str)
                 assert len(phrase) > 0

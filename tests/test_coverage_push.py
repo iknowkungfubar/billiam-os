@@ -11,10 +11,9 @@ import tempfile
 import pytest
 
 from core.config import (
-    load_config,
-    save_config,
-    find_config_file,
     DEFAULT_CONFIG,
+    find_config_file,
+    save_config,
 )
 from core.tts import TTSModule
 

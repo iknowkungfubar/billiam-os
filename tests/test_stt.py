@@ -6,7 +6,8 @@ Tests the Speech-to-Text module with wake word detection.
 """
 
 import pytest
-from core.stt import STTModule, DEFAULT_WAKE_WORDS
+
+from core.stt import STTModule
 
 
 class TestSTTModule:

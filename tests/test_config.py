@@ -5,19 +5,16 @@ Billiam OS — Configuration Test Suite
 Tests configuration loading, merging, and environment variable overrides.
 """
 
-import json
 import os
 import tempfile
-
-import pytest
 
 from core.config import (
     DEFAULT_CONFIG,
     find_config_file,
-    load_yaml_config,
-    merge_config,
     get_config_value,
     load_config,
+    load_yaml_config,
+    merge_config,
 )
 
 
@@ -136,7 +133,7 @@ class TestFindConfigFile:
         os.environ["BILLIAM_CONFIG"] = "/tmp/test_billiam_config.yaml"
         try:
             # File doesn't exist, but path is from env
-            result = find_config_file()
+            find_config_file()
             # Should check env path first, but it doesn't exist
             # so it might find another candidate or None
             pass

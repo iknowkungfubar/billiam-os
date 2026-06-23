@@ -43,7 +43,7 @@ class TestBannedExpressions:
             "shred /dev/sda",    # shred\s+
         ]
         for cmd in test_commands:
-            assert sandbox.check_string_safety(cmd) == False, \
+            assert not sandbox.check_string_safety(cmd), \
                 f"Command should be blocked: {cmd}"
 
 
@@ -140,10 +140,9 @@ class TestSecureExecutionSandbox:
             pytest.fail("Empty command should not trigger guardrail")
 
     def test_command_with_backticks(self):
-        """Commands with backticks should still be checked."""
-        assert not self.sandbox.check_string_safety(
-            "rm -rf / && echo 'done'"
-        )
+        """Commands that pass Layer 1 checks should be allowed."""
+        # This command is caught by Layer 1 because it starts with rm -rf /
+        assert not self.sandbox.check_string_safety("rm -rf / && echo 'done'")
 
     @pytest.mark.parametrize(
         "cmd,expected",
@@ -172,9 +171,9 @@ class TestSecureExecutionSandbox:
     )
     def test_obfuscated_destructive_commands(self, obfuscated):
         """Obfuscated destructive commands should still be caught."""
-        # Note: $HOME doesn't match ~ pattern — this is a known limitation
-        # documented in the architecture
-        result = self.sandbox.check_string_safety(obfuscated)
+        # rm -rf $HOME is ALLOWED (not /, not ~/*, not /home)
+        # This is a known limitation documented in the architecture
+        self.sandbox.check_string_safety(obfuscated)
         # rm -rf $HOME is ALLOWED (not /, not ~/*, not /home)
         # rm -r -f / IS caught because it matches rm\s+-(r|f|rf|fr)\s+/
         # This is acceptable — the guardrail is deterministic, not heuristic

@@ -5,7 +5,6 @@ Billiam OS — Audio Daemon Test Suite
 Tests the audio subsystem daemon.
 """
 
-import pytest
 from core.audio import AudioDaemon
 
 

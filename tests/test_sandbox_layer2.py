@@ -4,7 +4,8 @@ Billiam OS — Layer 2 Intent Classification Tests
 """
 
 import pytest
-from core.sandbox import IntentClassification, GuardrailException, SecureExecutionSandbox
+
+from core.sandbox import GuardrailException, IntentClassification, SecureExecutionSandbox
 
 
 class TestIntentClassification:

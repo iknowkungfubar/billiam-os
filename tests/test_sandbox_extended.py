@@ -5,16 +5,14 @@ Billiam OS — Extended Sandbox Tests
 Covers error handling paths and edge cases.
 """
 
-import os
-import tempfile
 
 import pytest
 
 from core.sandbox import (
-    SecureExecutionSandbox,
-    GuardrailException,
     BANNED_EXPRESSIONS,
     PRIVILEGED_TRIGGERS,
+    GuardrailException,
+    SecureExecutionSandbox,
 )
 
 

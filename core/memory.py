@@ -29,7 +29,10 @@ DEFAULT_MEMORY_SCHEMA: dict[str, Any] = {
     "assistant_profile": {
         "name": "Billiam",
         "modality": "FOSS AI-OS Core — Your Personal Digital Butler",
-        "personality": "Impeccably polite British butler. Courteous, efficient, and safety-conscious.",
+        "personality": (
+            "Impeccably polite British butler. "
+            "Courteous, efficient, and safety-conscious."
+        ),
     },
     "cached_system_facts": {},
     "interaction_history_tokens": [],

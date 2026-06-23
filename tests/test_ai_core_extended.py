@@ -9,10 +9,7 @@ and Billiam persona integration.
 import os
 import tempfile
 
-import pytest
-
 from core.ai_core import AICore
-from core.billiam import BILLIAM_PROFILE
 
 
 class TestAICoreExtended:

@@ -9,14 +9,12 @@ and file-based loading edge cases.
 import os
 import tempfile
 
-import pytest
-
 from core.config import (
     DEFAULT_CONFIG,
     load_config,
-    save_config,
     load_yaml_config,
     merge_config,
+    save_config,
 )
 
 
