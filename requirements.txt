@@ -4,7 +4,7 @@
 
 # ── Core Runtime ─────────────────────────────────────────────────────────────
 openai>=1.0.0                 # OpenAI-compatible client for llama.cpp API
-pyyaml>=6.0                   # YAML configuration parsing
+pyyaml>=6.0.3                   # YAML configuration parsing
 
 # ── Voice Pipeline ───────────────────────────────────────────────────────────
 edge-tts>=7.0.0               # Text-to-Speech (British voice, needs internet)
