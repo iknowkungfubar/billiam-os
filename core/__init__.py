@@ -26,7 +26,7 @@ from .config import (
     load_yaml_config,
 )
 from .memory import AssistantMemoryLayer
-from .sandbox import GuardrailException, SecureExecutionSandbox
+from .sandbox import GuardrailException, IntentClassification, SecureExecutionSandbox
 from .stt import STTModule
 from .tts import TTSModule
 

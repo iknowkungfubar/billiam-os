@@ -1,0 +1,57 @@
+name: Billiam
+run-name: Billiam OS CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyyaml
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check core/ --no-cache
+
+      - name: Test with pytest
+        run: |
+          pip install pytest pytest-cov
+          python -m pytest tests/ -q --cov=core --cov-report=term
+
+      - name: Check imports
+        run: |
+          python -c "
+          from core.billiam import BILLIAM_PROFILE
+          from core.memory import AssistantMemoryLayer
+          from core.sandbox import SecureExecutionSandbox
+          from core.config import load_config
+          from core.ai_core import AICore
+          import tempfile, os
+          d = tempfile.mkdtemp()
+          mp = os.path.join(d, 'mem.json')
+          c = AICore(memory_path=mp)
+          assert c.assistant_name == 'Billiam'
+          import shutil; shutil.rmtree(d)
+          print('All imports OK')
+          "
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.11'
+        run: |
+          python -m pytest tests/ --cov=core --cov-report=xml
+        continue-on-error: true

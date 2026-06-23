@@ -61,6 +61,128 @@ class GuardrailException(Exception):
     pass
 
 
+# ── Layer 2: Intent Classification ──────────────────────────────────────────
+# Heuristic risk scoring for commands beyond simple pattern matching.
+# Scores: 0.0 (safe) → 1.0 (critical danger)
+
+DANGEROUS_KEYWORDS = {
+    "delete": 0.6,
+    "destroy": 0.9,
+    "wipe": 0.9,
+    "overwrite": 0.5,
+    "format": 0.8,
+    "partition": 0.7,
+}
+
+DANGEROUS_TARGETS = [
+    "/boot",
+    "/etc",
+    "/dev/sd",
+    "/dev/nvme",
+    "/sys",
+    "/proc",
+]
+
+SYSTEM_MODIFICATION_COMMANDS = [
+    "pacman", "apt", "dnf", "yum", "zypper",
+    "systemctl", "service",
+    "passwd", "useradd", "usermod", "groupadd",
+    "modprobe", "insmod", "rmmod",
+]
+
+
+class IntentClassification:
+    """Layer 2: Heuristic intent classification for command safety.
+
+    Analyzes command structure, keywords, and targets to classify
+    the intent as SAFE, SUSPICIOUS, or DANGEROUS.
+    """
+
+    SAFE = "SAFE"
+    SUSPICIOUS = "SUSPICIOUS"
+    DANGEROUS = "DANGEROUS"
+
+    @classmethod
+    def classify(cls, command: str) -> tuple:
+        """Classify a command's intent.
+
+        Args:
+            command: The shell command to classify.
+
+        Returns:
+            Tuple of (classification, score, reason).
+        """
+        command_lower = command.lower()
+        score = 0.0
+        reasons = []
+
+        # Check dangerous keywords
+        for keyword, weight in DANGEROUS_KEYWORDS.items():
+            if keyword in command_lower:
+                score += weight
+                reasons.append(f"contains dangerous keyword '{keyword}'")
+
+        # Read-only commands should not be flagged for target access
+        READ_ONLY_PREFIXES = ["cat ", "less ", "more ", "head ", "tail ", "grep ", "wc "]
+        is_read_only = any(command_lower.startswith(prefix) for prefix in READ_ONLY_PREFIXES)
+
+        # Check dangerous targets (only for non-read operations)
+        if not is_read_only:
+            for target in DANGEROUS_TARGETS:
+                if target in command_lower:
+                    score += 0.5
+                    reasons.append(f"targets system path '{target}'")
+
+        # Check for destructive flag combinations
+        if "rm" in command_lower and ("-rf" in command_lower or "-fr" in command_lower):
+            score += 0.5
+            reasons.append("recursive force delete flags detected")
+            # rm -rf / is extra dangerous
+            if re.search(r"rm\s+-rf\s+/", command_lower) or re.search(r"rm\s+-fr\s+/", command_lower):
+                score += 0.5
+                reasons.append("targeting root filesystem for recursive delete")
+        elif "rm" in command_lower and "-r" in command_lower and "-f" in command_lower:
+            score += 0.4
+            reasons.append("recursive force delete flags detected")
+
+        if "dd" in command_lower and "of=" in command_lower:
+            score += 0.7
+            reasons.append("direct disk write operation detected")
+
+        if "chmod" in command_lower and "777" in command_lower and "/" in command_lower:
+            score += 0.6
+            reasons.append("permission escalation on root detected")
+
+        # Read-only commands should not be flagged
+        READ_ONLY_PREFIXES = ["cat ", "less ", "more ", "head ", "tail ", "grep ", "wc "]
+        is_read_only = any(command_lower.startswith(prefix) for prefix in READ_ONLY_PREFIXES)
+
+        # Check for system modification (not just reading)
+        for cmd in SYSTEM_MODIFICATION_COMMANDS:
+            if re.search(rf"\b{re.escape(cmd)}\b", command_lower):
+                if not is_read_only:
+                    score += 0.3
+                    reasons.append(f"system modification command '{cmd}'")
+                elif cmd == "passwd" and any(w in command_lower for w in ["write", "change", "add", "mod", "-e"]):
+                    score += 0.2
+                    reasons.append(f"password operation '{cmd}'")
+
+        # Check for shell injection characters
+        injection_chars = [";", "&&", "||", "`", "$("]
+        for char in injection_chars:
+            if char in command and command.strip().startswith(char):
+                score += 0.4
+                reasons.append(f"starts with injection char '{char}'")
+
+        # Determine classification
+        if score >= 0.7:
+            return (cls.DANGEROUS, score, "; ".join(reasons))
+        elif score >= 0.3:
+            return (cls.SUSPICIOUS, score, "; ".join(reasons))
+        else:
+            return (cls.SAFE, score, "Command appears benign")
+
+
 class SecureExecutionSandbox:
     """Secure wrapper for executing system commands through the guardrail system.
 
@@ -114,8 +236,16 @@ class SecureExecutionSandbox:
         # Layer 1: Deterministic pattern match
         if not self.check_string_safety(command):
             raise GuardrailException(
-                "GUARDRAIL BLOCKED: Command matched a banned security pattern. "
+                "GUARDRAIL BLOCKED [Layer 1]: Command matched a banned security pattern. "
                 "Execution terminated."
+            )
+
+        # Layer 2: Intent classification
+        classification, score, reason = IntentClassification.classify(command)
+        if classification == IntentClassification.DANGEROUS:
+            raise GuardrailException(
+                f"GUARDRAIL BLOCKED [Layer 2]: Command classified as DANGEROUS "
+                f"(score={score:.2f}). {reason}"
             )
 
     def execute_safely(

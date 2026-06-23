@@ -1,15 +1,25 @@
 # Billiam OS — Python Dependencies
 # All FOSS. No proprietary AI dependencies.
-# Core
-openai>=1.0.0          # OpenAI-compatible client for llama.cpp API
+# Install: pip install -r requirements.txt
 
-# Audio Pipeline
-# whisper.cpp — installed from source (see scripts/setup_inference.sh)
-# kokoro-onnx — optional TTS (pip install kokoro-onnx)
+# ── Core Runtime ─────────────────────────────────────────────────────────────
+openai>=1.0.0                 # OpenAI-compatible client for llama.cpp API
+pyyaml>=6.0                   # YAML configuration parsing
 
-# Testing
+# ── Voice Pipeline ───────────────────────────────────────────────────────────
+edge-tts>=7.0.0               # Text-to-Speech (British voice, needs internet)
+faster-whisper>=1.0.0         # Local Speech-to-Text (faster-whisper CTranslate2)
+sounddevice>=0.5.0            # Audio I/O (microphone capture, playback)
+
+# ── Testing ──────────────────────────────────────────────────────────────────
 pytest>=7.0.0
 pytest-cov>=4.0.0
 
-# Development
+# ── Development ──────────────────────────────────────────────────────────────
 ruff>=0.3.0
+
+# ── Optional ─────────────────────────────────────────────────────────────────
+# espeak-ng      — Offline TTS fallback (system package: sudo pacman -S espeak-ng)
+# webrtcvad      — Voice Activity Detection (pip install webrtcvad)
+# alsa-utils     — Audio capture (system package: sudo pacman -S alsa-utils)
+# pipewire       — Modern audio server (system package)

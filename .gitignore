@@ -34,3 +34,4 @@ models/*.gguf
 llama.cpp/
 tmp/
 *.tmp
+loop-state.json
