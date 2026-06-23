@@ -99,7 +99,129 @@ def build_parser() -> argparse.ArgumentParser:
     # Smoke-test subcommand
     subparsers.add_parser("smoke-test", help="Run smoke tests to verify the system works")
 
+    # Docs subcommand
+    subparsers.add_parser("docs", help="Open documentation in browser or show in terminal")
+
+    # Check subcommand
+    subparsers.add_parser("check", help="Validate all system dependencies")
+
     return parser
+
+
+def _handle_docs(args: argparse.Namespace) -> int:
+    """Display Billiam OS documentation.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    print("""
+Billiam OS — Documentation
+===========================
+
+Quick Start:
+  billiam --once "What's my hostname?"
+    Process a single request and exit.
+
+  billiam --voice
+    Interactive mode with British butler voice.
+
+  billiam smoke-test
+    Run diagnostics to verify the system works.
+
+  billiam check
+    Validate all system dependencies.
+
+  billiam config validate
+    Validate your configuration file.
+
+Architecture:
+  core/ai_core.py       Main orchestration loop
+  core/cli.py           CLI entry point with subcommands
+  core/tts.py           Text-to-Speech (Piper/espeak/edge-tts)
+  core/stt.py           Speech-to-Text (faster-whisper)
+  core/sandbox.py       3-layer security guardrail
+  core/memory.py        Persistent memory layer
+  core/config.py        YAML + env config with validation
+
+Configuration:
+  Config file: ~/.config/billiam-os/config.yaml
+  Env vars:    BILLIAM_API_BASE, BILLIAM_MODEL, etc.
+
+Online docs: https://github.com/iknowkungfubar/billiam-os
+""")
+    return 0
+
+
+def _handle_check(args: argparse.Namespace) -> int:
+    """Validate all system dependencies and report status.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code (0 = all good).
+    """
+    import shutil
+    import socket
+    import sys
+
+    from .config import load_config
+    from .tts import TTSModule
+
+    passed = 0
+    failed = 0
+
+    def check(name: str, ok: bool, detail: str = ""):
+        nonlocal passed, failed
+        if ok:
+            print(f"  ✓ {name}")
+            passed += 1
+        else:
+            print(f"  ✗ {name}: {detail}")
+            failed += 1
+
+    print("Billiam OS — System Check")
+    print("=" * 60)
+
+    check("Python 3.10+", sys.version_info >= (3, 10), f"Python {sys.version}")
+
+    # Core deps
+    tts = TTSModule(use_edge=False, use_piper=False)  # Don't trigger downloads
+    check("Config loads", bool(load_config()))
+    check("edge-tts available", tts._edge_available)
+    check("piper-tts installed", tts._piper_available)
+    check("espeak-ng installed", tts._espeak_available)
+    check("Piper model cached", tts._piper_model_ready)
+
+    # Audio playback tools
+    for tool in ["ffplay", "paplay", "aplay"]:
+        check(f"Audio player: {tool}", bool(shutil.which(tool)))
+
+    # Audio capture tools
+    for tool in ["arecord", "parec"]:
+        check(f"Audio capture: {tool}", bool(shutil.which(tool)))
+
+    # Network
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        result = s.connect_ex(("localhost", 8080))
+        check("LLM backend (localhost:8080)", result == 0, f"connect returned {result}")
+        s.close()
+    except Exception as e:
+        check("LLM backend (localhost:8080)", False, str(e))
+
+    print("=" * 60)
+    total = passed + failed
+    if failed == 0:
+        print(f"  Result: ALL {total} CHECKS PASSED ✓")
+        return 0
+    else:
+        print(f"  Result: {passed}/{total} passed, {failed} failed")
+        return 1
 
 
 def _handle_smoke_test(args: argparse.Namespace) -> int:
@@ -269,6 +391,10 @@ def main() -> int:
         return _handle_config(args)
     elif args.command == "smoke-test":
         return _handle_smoke_test(args)
+    elif args.command == "docs":
+        return _handle_docs(args)
+    elif args.command == "check":
+        return _handle_check(args)
 
     # Allow CLI args to override config defaults
     config = load_config()

@@ -74,3 +74,37 @@ class TestTTSModule:
         rep = repr(tts)
         assert "TTSModule" in rep
         assert "en-GB-RyanNeural" in rep
+
+    def test_init_piper_enabled_default(self):
+        """Piper TTS must be enabled by default."""
+        tts = TTSModule()
+        assert tts.use_piper is True
+
+    def test_check_piper_returns_bool(self):
+        """_check_piper must return bool."""
+        result = TTSModule._check_piper()
+        assert isinstance(result, bool)
+
+    def test_piper_model_path(self):
+        """Piper model path must be configured."""
+        path = TTSModule._get_piper_model_path()
+        assert path.endswith(".onnx")
+        assert "piper" in path.lower()
+
+    def test_piper_cache_dir(self):
+        """Cache directory must be under ~/.cache/billiam-os."""
+        from core.tts import PIPER_CACHE_DIR
+        assert ".cache/billiam-os" in PIPER_CACHE_DIR
+
+    def test_download_piper_model_no_piper(self):
+        """download_piper_model must handle missing piper CLI gracefully."""
+        tts = TTSModule(use_piper=False)
+        if not tts._piper_available:
+            # Piper not installed — download returns False quickly
+            result = tts.download_piper_model()
+            assert isinstance(result, bool)
+
+    def test_speak_no_backends(self):
+        """speak must return False when all backends are disabled."""
+        tts = TTSModule(use_edge=False, use_piper=False)
+        assert tts.speak("test") is False

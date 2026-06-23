@@ -3,33 +3,54 @@ core/tts.py
 Billiam OS — Text-to-Speech Module
 
 Provides British butler voice output using multiple backends:
-1. edge-tts (primary) — natural British voice via Edge TTS API
-2. espeak-ng (fallback) — fully offline, no internet needed
+1. edge-tts (online) — natural British voice via Edge TTS API
+2. Piper TTS (offline) — high-quality local neural TTS, FOSS
+3. espeak-ng (offline) — fully offline fallback, robotic but reliable
 
 All audio is played through the system's default audio output device.
 """
 
 import asyncio
+import json
 import logging
 import os
 import subprocess
 import tempfile
 import threading
+import urllib.request
+from pathlib import Path
 
 logger = logging.getLogger("billiam.tts")
 
-# Default British butler voice
+# Default voices
 DEFAULT_VOICE = "en-GB-RyanNeural"
 DEFAULT_RATE = "+0%"
 DEFAULT_PITCH = "+0Hz"
 FALLBACK_VOICE = "mb-en1"
 
+# Piper TTS configuration
+PIPER_VOICE_NAME = "en_GB-southern_english_female-medium"
+PIPER_MODEL_FILE = f"{PIPER_VOICE_NAME}.onnx"
+PIPER_CONFIG_FILE = f"{PIPER_VOICE_NAME}.json"
+PIPER_HF_REPO = "rhasspy/piper-voices"
+PIPER_HF_MODEL_URL = (
+    f"https://huggingface.co/{PIPER_HF_REPO}/resolve/main/"
+    f"en/en_GB/southern_english_female/medium/{PIPER_MODEL_FILE}"
+)
+PIPER_HF_CONFIG_URL = (
+    f"https://huggingface.co/{PIPER_HF_REPO}/resolve/main/"
+    f"en/en_GB/southern_english_female/medium/{PIPER_CONFIG_FILE}"
+)
+PIPER_CACHE_DIR = os.path.expanduser("~/.cache/billiam-os/piper")
+
 
 class TTSModule:
     """Text-to-Speech module with British butler voice.
 
-    Primary: edge-tts (natural British male voice, requires internet).
-    Fallback: espeak-ng (fully offline, robotic but intelligible).
+    Priority order (best available wins):
+    1. edge-tts — natural British male voice (requires internet)
+    2. Piper TTS — high-quality offline neural TTS (FOSS, local)
+    3. espeak-ng — offline fallback (always available)
 
     Usage:
         tts = TTSModule()
@@ -42,41 +63,50 @@ class TTSModule:
         rate: str = DEFAULT_RATE,
         pitch: str = DEFAULT_PITCH,
         use_edge: bool = True,
+        use_piper: bool = True,
         device: str | None = None,
     ):
         """Initialize the TTS module.
 
         Args:
-            voice: Edge TTS voice name (default: en-GB-RyanNeural — British male).
-            rate: Speech rate adjustment (default: +0%).
-            pitch: Pitch adjustment (default: +0Hz).
-            use_edge: Whether to use edge-tts as primary (True) or espeak-ng (False).
+            voice: Edge TTS voice name.
+            rate: Speech rate adjustment.
+            pitch: Pitch adjustment.
+            use_edge: Whether to use edge-tts (online).
+            use_piper: Whether to use Piper TTS (offline).
             device: Audio output device (None = system default).
         """
         self.voice = voice
         self.rate = rate
         self.pitch = pitch
         self.use_edge = use_edge
+        self.use_piper = use_piper
         self.device = device
 
         self._edge_available = self._check_edge()
         self._espeak_available = self._check_espeak()
+        self._piper_available = self._check_piper()
+        self._piper_model_ready = self._check_piper_model() if self._piper_available else False
 
-        if not self._edge_available and not self._espeak_available:
+        if not self._edge_available and not self._piper_available and not self._espeak_available:
             logger.warning("No TTS backend available. Speech output disabled.")
 
         logger.info(
-            "TTSModule initialized (edge=%s, espeak=%s, voice=%s)",
+            "TTSModule initialized (edge=%s, piper=%s/%s, espeak=%s, voice=%s)",
             self._edge_available,
+            self._piper_available,
+            self._piper_model_ready,
             self._espeak_available,
             self.voice,
         )
 
+    # ── Backend Detection ─────────────────────────────────────────────────────
+
     @staticmethod
     def _check_edge() -> bool:
-        """Check if edge-tts is available."""
+        """Check if edge-tts Python package is available."""
         try:
-            import edge_tts
+            import edge_tts  # noqa: F401
             return True
         except ImportError:
             return False
@@ -92,6 +122,78 @@ class TTSModule:
             return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
+
+    @staticmethod
+    def _check_piper() -> bool:
+        """Check if piper-tts CLI is installed."""
+        try:
+            subprocess.run(
+                ["piper", "--help"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+
+    # ── Piper Model Management ────────────────────────────────────────────────
+
+    @staticmethod
+    def _get_piper_model_path() -> str:
+        """Get path to the Piper voice model file."""
+        return os.path.join(PIPER_CACHE_DIR, PIPER_MODEL_FILE)
+
+    @staticmethod
+    def _get_piper_config_path() -> str:
+        """Get path to the Piper voice config file."""
+        return os.path.join(PIPER_CACHE_DIR, PIPER_CONFIG_FILE)
+
+    def _check_piper_model(self) -> bool:
+        """Check if a Piper voice model is already downloaded."""
+        return os.path.exists(self._get_piper_model_path())
+
+    def download_piper_model(self) -> bool:
+        """Download the Piper voice model from HuggingFace.
+
+        The model is ~15MB (medium quality British female voice).
+
+        Returns:
+            True if model is now available.
+        """
+        model_path = self._get_piper_model_path()
+        config_path = self._get_piper_config_path()
+
+        if os.path.exists(model_path):
+            logger.info("Piper model already cached: %s", model_path)
+            self._piper_model_ready = True
+            return True
+
+        os.makedirs(PIPER_CACHE_DIR, exist_ok=True)
+
+        try:
+            logger.info("Downloading Piper TTS model from HuggingFace...")
+            logger.info("  Voice: %s (~15MB)", PIPER_VOICE_NAME)
+
+            # Download model (.onnx)
+            logger.info("  Downloading model file...")
+            urllib.request.urlretrieve(PIPER_HF_MODEL_URL, model_path)
+
+            # Download config (.json)
+            logger.info("  Downloading config file...")
+            urllib.request.urlretrieve(PIPER_HF_CONFIG_URL, config_path)
+
+            logger.info("Piper model downloaded successfully.")
+            self._piper_model_ready = True
+            return True
+
+        except Exception as e:
+            logger.error("Failed to download Piper model: %s", e)
+            # Clean up partial downloads
+            for path in [model_path, config_path]:
+                if os.path.exists(path):
+                    os.unlink(path)
+            return False
+
+    # ── Audio Playback ────────────────────────────────────────────────────────
 
     def _play_audio(self, audio_file: str) -> bool:
         """Play audio file through system audio output.
@@ -135,8 +237,10 @@ class TTSModule:
         logger.error("No audio player available to play TTS output.")
         return False
 
+    # ── Speaking Backends ─────────────────────────────────────────────────────
+
     def _speak_edge(self, text: str) -> bool:
-        """Speak using edge-tts (natural British voice).
+        """Speak using edge-tts (natural British voice, requires internet).
 
         Args:
             text: Text to speak.
@@ -168,6 +272,66 @@ class TTSModule:
             logger.warning("edge-tts failed: %s. Trying fallback.", e)
             return False
 
+    def _speak_piper(self, text: str) -> bool:
+        """Speak using Piper TTS (fully offline, high quality).
+
+        Pipes text through piper CLI to stdout, then plays via aplay.
+
+        Args:
+            text: Text to speak.
+
+        Returns:
+            True if speech succeeded.
+        """
+        try:
+            model_path = self._get_piper_model_path()
+            if not os.path.exists(model_path):
+                logger.warning("Piper model not found. Downloading...")
+                if not self.download_piper_model():
+                    return False
+
+            with tempfile.NamedTemporaryFile(
+                suffix=".wav", delete=False
+            ) as tmp:
+                wav_path = tmp.name
+
+            # Run: echo "text" | piper --model model.onnx --output-raw | aplay -r 22050 -f S16_LE
+            try:
+                piper_proc = subprocess.Popen(
+                    ["piper", "--model", model_path, "--output-raw"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                )
+                aplay_proc = subprocess.Popen(
+                    ["aplay", "-r", "22050", "-f", "S16_LE", "-t", "raw"],
+                    stdin=piper_proc.stdout,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+
+                if piper_proc.stdin is not None:
+                    piper_proc.stdin.write(text.encode("utf-8"))
+                    piper_proc.stdin.close()
+                piper_proc.wait(timeout=30)
+                aplay_proc.wait(timeout=30)
+
+                if aplay_proc.returncode == 0 or piper_proc.returncode == 0:
+                    return True
+
+            except (subprocess.TimeoutExpired, BrokenPipeError):
+                logger.warning("Piper TTS timed out or pipe broken")
+                return False
+            finally:
+                if os.path.exists(wav_path):
+                    os.unlink(wav_path)
+
+            return False
+
+        except Exception as e:
+            logger.warning("Piper TTS failed: %s", e)
+            return False
+
     def _speak_espeak(self, text: str) -> bool:
         """Speak using espeak-ng (offline fallback).
 
@@ -180,7 +344,6 @@ class TTSModule:
             True if speech succeeded.
         """
         try:
-            # Try MBROLA British voice first
             cmd = ["espeak-ng", "-v", FALLBACK_VOICE, "-s", "150", "-p", "50", text]
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=30
@@ -191,12 +354,19 @@ class TTSModule:
             logger.error("espeak-ng failed: %s", e)
             return False
 
+    # ── Public API ────────────────────────────────────────────────────────────
+
     def speak(self, text: str, force_offline: bool = False) -> bool:
-        """Speak text aloud using the configured TTS backend.
+        """Speak text aloud using the best available TTS backend.
+
+        Priority:
+        1. edge-tts (online, natural)
+        2. Piper TTS (offline, high quality)
+        3. espeak-ng (offline, basic)
 
         Args:
             text: The text to speak.
-            force_offline: If True, skip edge-tts and use espeak-ng directly.
+            force_offline: If True, skip edge-tts.
 
         Returns:
             True if the speech was successfully played.
@@ -206,11 +376,22 @@ class TTSModule:
 
         logger.info("Speaking: %s", text[:80])
 
-        # Try edge-tts first (if not forced offline)
+        # Try edge-tts first (online, highest quality)
         if self.use_edge and not force_offline and self._edge_available:
             if self._speak_edge(text):
                 return True
-            logger.info("edge-tts failed, falling back to espeak-ng")
+            logger.info("edge-tts failed, trying Piper...")
+
+        # Try Piper TTS (offline, high quality)
+        if self.use_piper and self._piper_available and self._piper_model_ready:
+            if self._speak_piper(text):
+                return True
+            logger.info("Piper TTS failed, trying espeak-ng...")
+        elif self.use_piper and self._piper_available and not self._piper_model_ready:
+            logger.info("Piper model not cached. Attempting download...")
+            if self.download_piper_model():
+                if self._speak_piper(text):
+                    return True
 
         # Fallback to espeak-ng
         if self._espeak_available:
@@ -225,7 +406,7 @@ class TTSModule:
 
         Args:
             text: The text to speak.
-            force_offline: If True, skip edge-tts and use espeak-ng directly.
+            force_offline: If True, skip edge-tts.
 
         Returns:
             The background thread object.
@@ -239,7 +420,7 @@ class TTSModule:
     @property
     def is_available(self) -> bool:
         """Check if at least one TTS backend is available."""
-        return self._edge_available or self._espeak_available
+        return self._edge_available or self._piper_available or self._espeak_available
 
     @property
     def backends(self) -> list:
@@ -247,6 +428,9 @@ class TTSModule:
         backends = []
         if self._edge_available:
             backends.append("edge-tts")
+        if self._piper_available:
+            piper_status = "ready" if self._piper_model_ready else "no-model"
+            backends.append(f"piper-tts ({piper_status})")
         if self._espeak_available:
             backends.append("espeak-ng")
         return backends

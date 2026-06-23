@@ -46,7 +46,7 @@ ignore = ["S603", "S607"]  # subprocess with shell=True is intentional for syste
 "core/sandbox.py" = ["N818", "N806"]
 "core/cli.py" = ["S101"]
 "core/stt.py" = ["F401"]
-"core/tts.py" = ["F401"]
+"core/tts.py" = ["F401", "S310"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
