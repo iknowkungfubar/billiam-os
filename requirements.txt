@@ -1,0 +1,15 @@
+# Billiam OS — Python Dependencies
+# All FOSS. No proprietary AI dependencies.
+# Core
+openai>=1.0.0          # OpenAI-compatible client for llama.cpp API
+
+# Audio Pipeline
+# whisper.cpp — installed from source (see scripts/setup_inference.sh)
+# kokoro-onnx — optional TTS (pip install kokoro-onnx)
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Development
+ruff>=0.3.0
