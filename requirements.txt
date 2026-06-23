@@ -7,7 +7,7 @@ openai>=1.0.0                 # OpenAI-compatible client for llama.cpp API
 pyyaml>=6.0                   # YAML configuration parsing
 
 # ── Voice Pipeline ───────────────────────────────────────────────────────────
-edge-tts>=7.0.0               # Text-to-Speech (British voice, needs internet)
+edge-tts>=7.2.8               # Text-to-Speech (British voice, needs internet)
 faster-whisper>=1.0.0         # Local Speech-to-Text (faster-whisper CTranslate2)
 sounddevice>=0.5.0            # Audio I/O (microphone capture, playback)
 
