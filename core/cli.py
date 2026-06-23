@@ -96,7 +96,127 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to config file to validate",
     )
 
+    # Smoke-test subcommand
+    subparsers.add_parser("smoke-test", help="Run smoke tests to verify the system works")
+
     return parser
+
+
+def _handle_smoke_test(args: argparse.Namespace) -> int:
+    """Run comprehensive smoke tests to verify Billiam OS is functional.
+
+    Tests:
+    1. Core module imports
+    2. Configuration loading
+    3. Memory initialization
+    4. Guardrail security (blocks bad, allows safe)
+    5. Intent classification
+    6. Billiam persona
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code (0 = all pass).
+    """
+    import os
+    import tempfile
+
+    passed = 0
+    failed = 0
+
+    def check(name: str, ok: bool, detail: str = ""):
+        nonlocal passed, failed
+        if ok:
+            print(f"  ✓ {name}")
+            passed += 1
+        else:
+            print(f"  ✗ {name}: {detail}")
+            failed += 1
+
+    print("Billiam OS Smoke Test")
+    print(f"{'=' * 60}")
+
+    # 1. Core imports
+    try:
+        from core.ai_core import AICore  # noqa: F401
+        from core.billiam import system_prompt_injection  # noqa: F401
+        from core.config import load_config  # noqa: F401
+        from core.memory import AssistantMemoryLayer
+        from core.sandbox import GuardrailError, IntentClassification, SecureExecutionSandbox
+        check("All core modules import correctly", True)
+    except ImportError as e:
+        check("All core modules import correctly", False, str(e))
+
+    # 2. Configuration
+    try:
+        config = load_config()
+        assert "billiam" in config
+        assert "llm" in config
+        check("Configuration loads with defaults", True)
+    except Exception as e:
+        check("Configuration loads with defaults", False, str(e))
+
+    # 3. Memory initialization
+    try:
+        tmp_dir = tempfile.mkdtemp()
+        mem_path = os.path.join(tmp_dir, "test_memory.json")
+        mem = AssistantMemoryLayer(storage_path=mem_path)
+        assert mem.get_user_name() == "Developer"
+        check("Memory layer initializes", True)
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    except Exception as e:
+        check("Memory layer initializes", False, str(e))
+
+    # 4. Guardrail - blocks dangerous
+    try:
+        sandbox = SecureExecutionSandbox()
+        sandbox.validate_command("rm -rf /")
+        check("Guardrail blocks dangerous commands", False, "Command was not blocked")
+    except GuardrailError:
+        check("Guardrail blocks dangerous commands", True)
+    except Exception as e:
+        check("Guardrail blocks dangerous commands", False, str(e))
+
+    # 5. Guardrail - allows safe
+    try:
+        rc, stdout, stderr = sandbox.execute_safely("echo 'smoke test'")
+        check("Guardrail allows safe commands", rc == 0, f"exit code {rc}")
+    except Exception as e:
+        check("Guardrail allows safe commands", False, str(e))
+
+    # 6. Intent classification
+    try:
+        cls, score, _ = IntentClassification.classify("echo hello")
+        check("Intent classification (safe)", cls == "SAFE", f"got {cls}")
+        cls2, score2, _ = IntentClassification.classify("format /dev/sda1")
+        check(
+            "Intent classification (dangerous)",
+            cls2 == "DANGEROUS",
+            f"got {cls2} (score={score2:.1f})",
+        )
+    except Exception as e:
+        check("Intent classification", False, str(e))
+
+    # 7. Billiam persona
+    try:
+        prompt = system_prompt_injection()
+        check("Billiam persona in system prompt", "Billiam" in prompt and "Butler" in prompt)
+        check("Persona mentions butler and TOOL format",
+              "TOOL:" in prompt or "tool" in prompt.lower())
+    except Exception as e:
+        check("Billiam persona", False, str(e))
+
+    # Summary
+    print(f"{'=' * 60}")
+    total = passed + failed
+    if failed == 0:
+        print(f"  Result: ALL {total} TESTS PASSED ✓")
+        return 0
+    else:
+        print(f"  Result: {passed}/{total} passed, {failed} failed")
+        return 1
 
 
 def _handle_config(args: argparse.Namespace) -> int:
@@ -147,6 +267,8 @@ def main() -> int:
     # Handle subcommands
     if args.command == "config":
         return _handle_config(args)
+    elif args.command == "smoke-test":
+        return _handle_smoke_test(args)
 
     # Allow CLI args to override config defaults
     config = load_config()

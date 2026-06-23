@@ -44,6 +44,7 @@ ignore = ["S603", "S607"]  # subprocess with shell=True is intentional for syste
 "tests/*" = ["S101", "S311", "S108", "N818", "N806"]
 "core/billiam.py" = ["S311"]
 "core/sandbox.py" = ["N818", "N806"]
+"core/cli.py" = ["S101"]
 "core/stt.py" = ["F401"]
 "core/tts.py" = ["F401"]
 
