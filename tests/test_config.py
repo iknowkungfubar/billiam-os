@@ -35,9 +35,9 @@ class TestDefaultConfig:
 
     def test_billiam_section(self):
         """Billiam section must have name and wake word."""
-        billiam = DEFAULT_CONFIG["billiam"]
-        assert billiam["name"] == "Billiam"
-        assert billiam["wake_word"] == "billiam"
+        section = DEFAULT_CONFIG["billiam"]
+        assert section["name"] == "Billiam"
+        assert section["wake_word"] == "billiam"
 
     def test_tts_section(self):
         """TTS section must have British voice defaults."""

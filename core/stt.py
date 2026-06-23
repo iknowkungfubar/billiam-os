@@ -68,6 +68,7 @@ class STTModule:
         self._model = None
         self._listening = False
         self._vad_available = self._check_vad()
+        self._checked_hardware: bool | None = None
 
         logger.info(
             "STTModule initialized (model=%s, lang=%s, device=%s, vad=%s)",
@@ -100,14 +101,38 @@ class STTModule:
     def _check_vad() -> bool:
         """Check if webrtcvad is available for voice activity detection."""
         try:
-            import webrtcvad
+            import webrtcvad  # noqa: F401
             return True
         except ImportError:
             return False
 
+    def _has_capture_hardware(self) -> bool:
+        """Check if audio capture hardware is available without blocking.
+
+        Returns:
+            True if at least one capture method is usable.
+        """
+        if self._checked_hardware is not None:
+            return self._checked_hardware
+
+        self._checked_hardware = False
+        # Check if either arecord or parec is installed
+        for tool in ["arecord", "parec"]:
+            try:
+                subprocess.run(
+                    ["which", tool], capture_output=True, timeout=2
+                )
+                self._checked_hardware = True
+                break
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+
+        return self._checked_hardware
+
     def _capture_audio(self, duration: float = DEFAULT_RECORD_SECONDS) -> str:
         """Record audio from the default microphone.
 
+        Checks hardware availability first to avoid blocking.
         Tries: parec (PipeWire), arecord (ALSA), then raises.
 
         Args:
@@ -116,6 +141,11 @@ class STTModule:
         Returns:
             Path to the recorded WAV file.
         """
+        if not self._has_capture_hardware():
+            raise RuntimeError(
+                "No audio capture backend available. "
+                "Install arecord (alsa-utils) or parec (pipewire)"
+            )
         tmp_file = tempfile.NamedTemporaryFile(
             suffix=".wav", delete=False
         )

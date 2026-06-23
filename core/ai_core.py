@@ -33,25 +33,16 @@ from .billiam import (
 )
 from .config import get_config_value, load_config
 from .memory import AssistantMemoryLayer
-from .sandbox import GuardrailException, SecureExecutionSandbox
+from .sandbox import GuardrailError, SecureExecutionSandbox
 
 # ── Configuration ────────────────────────────────────────────────────────────
-_CONFIG = load_config()
-DEFAULT_LLM_API_BASE = get_config_value(_CONFIG, "llm.api_base")
-DEFAULT_LLM_MODEL = get_config_value(_CONFIG, "llm.model")
-DEFAULT_SYSTEM_MEMORY_PATH = get_config_value(_CONFIG, "memory.storage_path")
-DEFAULT_LLM_TEMPERATURE = float(get_config_value(_CONFIG, "llm.temperature"))
-DEFAULT_LLM_MAX_TOKENS = int(get_config_value(_CONFIG, "llm.max_tokens"))
+_CONF = load_config()
+DEFAULT_LLM_API_BASE = get_config_value(_CONF, "llm.api_base")
+DEFAULT_LLM_MODEL = get_config_value(_CONF, "llm.model")
+DEFAULT_SYSTEM_MEMORY_PATH = get_config_value(_CONF, "memory.storage_path")
+DEFAULT_LLM_TEMPERATURE = float(get_config_value(_CONF, "llm.temperature"))
+DEFAULT_LLM_MAX_TOKENS = int(get_config_value(_CONF, "llm.max_tokens"))
 
-# Logging setup
-logging.basicConfig(
-    level=get_config_value(_CONFIG, "logging.level", "INFO"),
-    format=get_config_value(
-        _CONFIG,
-        "logging.format",
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    ),
-)
 logger = logging.getLogger("billiam.core")
 
 
@@ -77,6 +68,7 @@ class AICore:
         max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
         enable_tts: bool = False,
         enable_stt: bool = False,
+        client: OpenAI | None = None,
     ):
         """Initialize the AI Core with all subsystems.
 
@@ -88,6 +80,7 @@ class AICore:
             max_tokens: Maximum tokens in LLM response.
             enable_tts: Enable Text-to-Speech (British butler voice).
             enable_stt: Enable Speech-to-Text (wake word + voice commands).
+            client: Injected OpenAI client (for testing). Creates one if None.
         """
         self.api_base = api_base
         self.model = model
@@ -109,8 +102,8 @@ class AICore:
         if enable_tts or enable_stt:
             self._init_voice()
 
-        # Initialize LLM client
-        self.client = OpenAI(
+        # Initialize LLM client (accept injected for testing)
+        self.client = client or OpenAI(
             base_url=api_base,
             api_key="billiam-local-no-key-needed",
         )
@@ -252,7 +245,7 @@ class AICore:
                     f"Stderr: {stderr.strip() if stderr else 'None'}\n"
                     f"Stdout: {stdout.strip() if stdout else 'None'}"
                 )
-        except GuardrailException as e:
+        except GuardrailError as e:
             return str(e)
 
     def _speak_response(self, text: str) -> None:
@@ -391,80 +384,3 @@ class AICore:
             The assistant's response text.
         """
         return self.process_input(prompt)
-
-
-# ── CLI Entry Point ──────────────────────────────────────────────────────────
-
-
-def main():
-    """CLI entry point for the Billiam OS AI Core.
-
-    Usage:
-        python -m core.ai_core              # Interactive mode
-        python -m core.ai_core --once "..."  # Single request
-        python -m core.ai_core --voice      # Voice-enabled interactive mode
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description=f"{BILLIAM_PROFILE['name']} OS — AI Core Orchestrator",
-    )
-    parser.add_argument(
-        "--once",
-        type=str,
-        help="Process a single request and exit",
-        default=None,
-    )
-    parser.add_argument(
-        "--voice",
-        "--tts",
-        action="store_true",
-        help="Enable voice output (British butler TTS)",
-    )
-    parser.add_argument(
-        "--stt",
-        action="store_true",
-        help="Enable speech-to-text (wake word + voice commands)",
-    )
-    parser.add_argument(
-        "--api-base",
-        type=str,
-        default=DEFAULT_LLM_API_BASE,
-        help="LLM API base URL",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default=DEFAULT_LLM_MODEL,
-        help="LLM model name",
-    )
-    parser.add_argument(
-        "--daemon",
-        action="store_true",
-        help="Run as a persistent daemon",
-    )
-
-    args = parser.parse_args()
-
-    # Initialize core
-    core = AICore(
-        api_base=args.api_base,
-        model=args.model,
-        enable_tts=args.voice or args.daemon,
-        enable_stt=args.stt or args.daemon,
-    )
-
-    if args.once:
-        response = core.run_once(args.once)
-        print(response)
-    elif args.daemon:
-        print(f"{core.assistant_name} OS Daemon starting...")
-        if core._audio_daemon:
-            core._audio_daemon.start()
-        core.run_interactive()
-    else:
-        core.run_interactive()
-
-
-if __name__ == "__main__":
-    main()

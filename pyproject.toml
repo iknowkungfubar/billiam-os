@@ -12,6 +12,13 @@ requires-python = ">=3.10"
 authors = [
     {name = "Billiam OS Contributors"},
 ]
+
+[project.scripts]
+billiam = "core.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/iknowkungfubar/billiam-os"
+Repository = "https://github.com/iknowkungfubar/billiam-os.git"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

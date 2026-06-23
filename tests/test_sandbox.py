@@ -12,7 +12,7 @@ import pytest
 
 from core.sandbox import (
     BANNED_EXPRESSIONS,
-    GuardrailException,
+    GuardrailError,
     SecureExecutionSandbox,
 )
 
@@ -73,15 +73,15 @@ class TestSecureExecutionSandbox:
         assert not self.sandbox.check_string_safety(dangerous_cmd)
 
     def test_execute_blocked_raises_guardrail(self):
-        """Executing a blocked command must raise GuardrailException."""
-        with pytest.raises(GuardrailException):
+        """Executing a blocked command must raise GuardrailError."""
+        with pytest.raises(GuardrailError):
             self.sandbox.execute_safely("rm -rf /")
 
     def test_execute_blocked_command_format(self):
-        """GuardrailException message must be informative."""
+        """GuardrailError message must be informative."""
         try:
             self.sandbox.execute_safely("rm -rf /")
-        except GuardrailException as e:
+        except GuardrailError as e:
             assert "GUARDRAIL BLOCKED" in str(e)
             assert "banned security pattern" in str(e)
 
@@ -131,12 +131,12 @@ class TestSecureExecutionSandbox:
     # ── Edge Cases ────────────────────────────────────────────────────────
 
     def test_empty_command(self):
-        """An empty command should not raise GuardrailException."""
+        """An empty command should not raise GuardrailError."""
         try:
             rc, stdout, stderr = self.sandbox.execute_safely("")
             # bash -c "" exits 0, no output — this is acceptable
             assert rc == 0
-        except GuardrailException:
+        except GuardrailError:
             pytest.fail("Empty command should not trigger guardrail")
 
     def test_command_with_backticks(self):

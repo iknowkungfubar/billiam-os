@@ -5,7 +5,7 @@ Billiam OS — Layer 2 Intent Classification Tests
 
 import pytest
 
-from core.sandbox import GuardrailException, IntentClassification, SecureExecutionSandbox
+from core.sandbox import GuardrailError, IntentClassification, SecureExecutionSandbox
 
 
 class TestIntentClassification:
@@ -59,7 +59,7 @@ class TestIntentClassification:
         sandbox = SecureExecutionSandbox()
         # Use a command Layer 1 allows (no exact banned pattern match)
         # but Layer 2 classifies as DANGEROUS
-        with pytest.raises(GuardrailException) as exc:
+        with pytest.raises(GuardrailError) as exc:
             sandbox.execute_safely("rm -rf /boot")
         # Will be blocked by Layer 1 (also fine) or Layer 2
         assert "GUARDRAIL BLOCKED" in str(exc.value)

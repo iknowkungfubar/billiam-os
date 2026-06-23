@@ -11,7 +11,7 @@ import pytest
 from core.sandbox import (
     BANNED_EXPRESSIONS,
     PRIVILEGED_TRIGGERS,
-    GuardrailException,
+    GuardrailError,
     SecureExecutionSandbox,
 )
 
@@ -76,7 +76,7 @@ class TestSandboxEdgeCases:
 
     def test_validate_raises_for_destructive(self):
         """validate_command must raise for destructive commands."""
-        with pytest.raises(GuardrailException):
+        with pytest.raises(GuardrailError):
             self.sandbox.validate_command("rm -rf /")
 
     def test_banned_patterns_list_not_empty(self):

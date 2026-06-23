@@ -19,6 +19,7 @@ from .billiam import (
     get_greeting,
     system_prompt_injection,
 )
+from .cli import build_parser, main, setup_logging
 from .config import (
     find_config_file,
     get_config_value,
@@ -26,7 +27,7 @@ from .config import (
     load_yaml_config,
 )
 from .memory import AssistantMemoryLayer
-from .sandbox import GuardrailException, IntentClassification, SecureExecutionSandbox
+from .sandbox import GuardrailError, IntentClassification, SecureExecutionSandbox
 from .stt import STTModule
 from .tts import TTSModule
 
@@ -34,7 +35,7 @@ __all__ = [
     "AICore",
     "AssistantMemoryLayer",
     "SecureExecutionSandbox",
-    "GuardrailException",
+    "GuardrailError",
     "IntentClassification",
     "SecureExecutionSandbox",
     "TTSModule",
@@ -49,4 +50,7 @@ __all__ = [
     "load_yaml_config",
     "find_config_file",
     "get_config_value",
+    "build_parser",
+    "main",
+    "setup_logging",
 ]

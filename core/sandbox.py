@@ -55,7 +55,7 @@ PRIVILEGED_TRIGGERS = [
 ]
 
 
-class GuardrailException(Exception):
+class GuardrailError(Exception):
     """Raised when a command is blocked by the guardrail system."""
 
     pass
@@ -230,11 +230,11 @@ class SecureExecutionSandbox:
             command: The shell command string to validate.
 
         Raises:
-            GuardrailException: If the command fails any guardrail check.
+            GuardrailError: If the command fails any guardrail check.
         """
         # Layer 1: Deterministic pattern match
         if not self.check_string_safety(command):
-            raise GuardrailException(
+            raise GuardrailError(
                 "GUARDRAIL BLOCKED [Layer 1]: Command matched a banned security pattern. "
                 "Execution terminated."
             )
@@ -242,7 +242,7 @@ class SecureExecutionSandbox:
         # Layer 2: Intent classification
         classification, score, reason = IntentClassification.classify(command)
         if classification == IntentClassification.DANGEROUS:
-            raise GuardrailException(
+            raise GuardrailError(
                 f"GUARDRAIL BLOCKED [Layer 2]: Command classified as DANGEROUS "
                 f"(score={score:.2f}). {reason}"
             )
@@ -260,7 +260,7 @@ class SecureExecutionSandbox:
             Tuple of (returncode, stdout, stderr).
 
         Raises:
-            GuardrailException: If the command fails guardrail checks.
+            GuardrailError: If the command fails guardrail checks.
         """
         # Run guardrail checks
         self.validate_command(command)

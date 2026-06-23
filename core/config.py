@@ -3,7 +3,8 @@ core/config.py
 Billiam OS — Configuration Management
 
 Manages Billiam OS configuration via YAML file, environment variables,
-and CLI arguments. Provides typed access to all configuration values.
+and CLI arguments. Provides typed access to all configuration values
+with Pydantic schema validation.
 
 Configuration file locations (first found wins):
 1. $BILLIAM_CONFIG or --config path
@@ -19,6 +20,59 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("billiam.config")
+
+# ── Pydantic Schema for Config Validation ─────────────────────────────────────
+
+_has_pydantic = False
+try:
+    from pydantic import BaseModel, field_validator  # noqa: F401
+    _has_pydantic = True
+except ImportError:
+    BaseModel = object  # type: ignore[misc]
+
+
+class LLMConfig(BaseModel if _has_pydantic else object):  # type: ignore[no-redef, misc]
+    """LLM backend configuration with validation."""
+    api_base: str = "http://localhost:8080/v1"
+    model: str
+    temperature: float = 0.2
+    max_tokens: int = 512
+
+    if _has_pydantic:
+        @field_validator("temperature")
+        @classmethod
+        def check_temperature(cls, v: float) -> float:
+            if not 0.0 <= v <= 2.0:
+                raise ValueError(f"Temperature must be between 0 and 2, got {v}")
+            return v
+
+        @field_validator("max_tokens")
+        @classmethod
+        def check_max_tokens(cls, v: int) -> int:
+            if v < 1:
+                raise ValueError(f"max_tokens must be positive, got {v}")
+            return v
+
+
+def validate_config(data: dict) -> list[str]:
+    """Validate configuration data against Pydantic schema.
+
+    Args:
+        data: Raw configuration dictionary.
+
+    Returns:
+        List of validation error messages (empty if valid).
+    """
+    if not _has_pydantic:
+        return ["pydantic not installed. Install with: pip install pydantic"]
+
+    errors = []
+    llm_data = data.get("llm", {})
+    try:
+        LLMConfig(**llm_data)
+    except Exception as e:
+        errors.append(str(e))
+    return errors
 
 # Default configuration
 DEFAULT_CONFIG: dict[str, Any] = {
