@@ -116,70 +116,62 @@ class IntentClassification:
         score = 0.0
         reasons = []
 
-        # Check dangerous keywords
-        for keyword, weight in DANGEROUS_KEYWORDS.items():
-            if keyword in command_lower:
-                score += weight
-                reasons.append(f"contains dangerous keyword '{keyword}'")
-
-        # Read-only commands should not be flagged for target access
+        # Read-only commands should not be flagged for target/modification checks
         READ_ONLY_PREFIXES = ["cat ", "less ", "more ", "head ", "tail ", "grep ", "wc "]
         is_read_only = any(command_lower.startswith(prefix) for prefix in READ_ONLY_PREFIXES)
 
-        # Check dangerous targets (only for non-read operations)
+        # Data-driven checks: (score_weight, matcher_fn, reason_template)
+        checks = []
+
+        # 1. Dangerous keywords
+        for keyword, weight in DANGEROUS_KEYWORDS.items():
+            checks.append((weight, lambda kw=keyword: kw in command_lower,
+                          f"contains dangerous keyword '{keyword}'"))
+
+        # 2. Dangerous targets (only for non-read operations)
         if not is_read_only:
             for target in DANGEROUS_TARGETS:
-                if target in command_lower:
-                    score += 0.5
-                    reasons.append(f"targets system path '{target}'")
+                checks.append((0.5, lambda t=target: t in command_lower,
+                              f"targets system path '{target}'"))
 
-        # Check for destructive flag combinations
-        if "rm" in command_lower and ("-rf" in command_lower or "-fr" in command_lower):
-            score += 0.5
-            reasons.append("recursive force delete flags detected")
-            # rm -rf / is extra dangerous
-            if re.search(
-                r"rm\s+-rf\s+/\s", command_lower
-            ) or re.search(
-                r"rm\s+-fr\s+/\s", command_lower
-            ):
-                score += 0.5
-                reasons.append("targeting root filesystem for recursive delete")
-        elif "rm" in command_lower and "-r" in command_lower and "-f" in command_lower:
-            score += 0.4
-            reasons.append("recursive force delete flags detected")
+        # 3. Destructive flag combinations
+        has_rm_rf = "rm" in command_lower and ("-rf" in command_lower or "-fr" in command_lower)
+        has_rm_sep = "rm" in command_lower and "-r" in command_lower and "-f" in command_lower
+        has_rm_root = bool(re.search(r"rm\s+-rf\s+/\s", command_lower) or
+                          re.search(r"rm\s+-fr\s+/\s", command_lower))
+        has_dd_disk = "dd" in command_lower and "of=" in command_lower
+        has_chmod_777 = "chmod" in command_lower and "777" in command_lower and "/" in command_lower
 
-        if "dd" in command_lower and "of=" in command_lower:
-            score += 0.7
-            reasons.append("direct disk write operation detected")
+        checks.append((0.5, lambda: has_rm_rf, "recursive force delete flags detected"))
+        checks.append((0.5, lambda: has_rm_root, "root filesystem targeted for recursive delete"))
+        checks.append((0.4, lambda: has_rm_sep, "recursive force delete flags (separated)"))
+        checks.append((0.7, lambda: has_dd_disk, "direct disk write operation detected"))
+        checks.append((0.6, lambda: has_chmod_777, "permission escalation on root detected"))
 
-        if "chmod" in command_lower and "777" in command_lower and "/" in command_lower:
-            score += 0.6
-            reasons.append("permission escalation on root detected")
+        # 4. System modification commands (not read-only)
+        if not is_read_only:
+            for cmd in SYSTEM_MODIFICATION_COMMANDS:
+                def _make_matcher(c):
+                    return lambda: bool(re.search(rf"\b{re.escape(c)}\b", command_lower))
+                checks.append((0.3, _make_matcher(cmd),
+                              f"system modification command '{cmd}'"))
 
-        # Read-only commands should not be flagged
-        READ_ONLY_PREFIXES = ["cat ", "less ", "more ", "head ", "tail ", "grep ", "wc "]
-        is_read_only = any(command_lower.startswith(prefix) for prefix in READ_ONLY_PREFIXES)
+        # 5. Password operations (even read-only)
+        checks.append((0.2, lambda: "passwd" in command_lower and any(
+            w in command_lower for w in ["write", "change", "add", "mod", "-e"]),
+                      "password write operation detected"))
 
-        # Check for system modification (not just reading)
-        for cmd in SYSTEM_MODIFICATION_COMMANDS:
-            if re.search(rf"\b{re.escape(cmd)}\b", command_lower):
-                if not is_read_only:
-                    score += 0.3
-                    reasons.append(f"system modification command '{cmd}'")
-                elif cmd == "passwd" and any(
-                    w in command_lower
-                    for w in ["write", "change", "add", "mod", "-e"]
-                ):
-                    score += 0.2
-                    reasons.append(f"password operation '{cmd}'")
-
-        # Check for shell injection characters
+        # 6. Shell injection characters at start of command
         injection_chars = [";", "&&", "||", "`", "$("]
         for char in injection_chars:
-            if char in command and command.strip().startswith(char):
-                score += 0.4
-                reasons.append(f"starts with injection char '{char}'")
+            checks.append((0.4, lambda c=char: command.strip().startswith(c),
+                          f"starts with injection char '{char}'"))
+
+        # Apply all checks
+        for weight, matcher, reason in checks:
+            if matcher():
+                score += weight
+                reasons.append(reason)
 
         # Determine classification
         if score >= 0.7:

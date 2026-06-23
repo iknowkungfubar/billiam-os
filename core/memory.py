@@ -57,7 +57,7 @@ class AssistantMemoryLayer:
         memory.record_interaction("user said X", "assistant replied Y")
     """
 
-    def __init__(self, storage_path: str = "~/.config/aios/memory.json"):
+    def __init__(self, storage_path: str = "~/.config/billiam-os/memory.json"):
         """Initialize the memory layer.
 
         Args:
@@ -66,6 +66,9 @@ class AssistantMemoryLayer:
         """
         self.storage_path = os.path.expanduser(storage_path)
         os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+        # Set restrictive permissions on memory file (owner read/write only)
+        if os.path.exists(self.storage_path):
+            os.chmod(self.storage_path, 0o600)
         self.memory = self._load_from_disk()
 
     def _load_from_disk(self) -> dict[str, Any]:
