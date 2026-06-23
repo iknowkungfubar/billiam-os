@@ -3,7 +3,7 @@
 # Install: pip install -r requirements.txt
 
 # ── Core Runtime ─────────────────────────────────────────────────────────────
-openai>=1.0.0                 # OpenAI-compatible client for llama.cpp API
+openai>=2.43.0                 # OpenAI-compatible client for llama.cpp API
 pyyaml>=6.0                   # YAML configuration parsing
 
 # ── Voice Pipeline ───────────────────────────────────────────────────────────
