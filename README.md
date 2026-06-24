@@ -24,8 +24,8 @@ Billiam OS is a **personalized digital assistant operating system layer** for Li
 
 | Feature | How It Works |
 |---------|-------------|
-| **🎤 Voice Control** | Wake word ("Billiam...") → STT (faster-whisper) → LLM → TTS (British butler voice) |
-| **🗣️ British Butler TTS** | Edge TTS `en-GB-RyanNeural` (online) + espeak-ng (offline fallback) |
+| **🎤 Voice Control** | Wake word → STT (faster-whisper) → LLM → TTS (British butler voice). Use `--stt` in interactive mode or `--daemon` for always-listening (daemon is the primary path). |
+| **🗣️ British Butler TTS** | Edge TTS `en-GB-RyanNeural` (online) + Piper TTS / espeak-ng (offline fallback). Piper requires the CLI static binary (installed via `scripts/install.sh` or downloaded from GitHub); espeak-ng uses default English voice (mbrola optional for higher quality). |
 | **🧠 Local LLM** | llama.cpp with OpenVINO acceleration; Qwen-2.5-Coder-3B |
 | **🛡️ 3-Layer Guardrails** | Regex (L1) → Intent Classification (L2) → Human Confirmation (L3) |
 | **💾 Persistent Memory** | Remembers your name, preferences, and conversation history |
@@ -121,7 +121,7 @@ Billiam is an **impeccably polite British butler**. Key personality traits:
 
 **Voice:** British male (en-GB-RyanNeural) via Edge TTS  
 **Fallback:** espeak-ng with MBROLA British voice (offline)  
-**Wake word:** "Billiam", "Hey Billiam", "Okay Billiam"
+**Wake word:** Post-hoc detection — records ~10s, transcribes with Whisper, checks for "Billiam" in text, then processes command.
 
 ---
 
@@ -287,6 +287,22 @@ bind = SUPER, V, exec, ~/.config/billiam-os/scripts/billiam-voice.sh
 | Microphone not working | Test with: `arecord test.wav` (install alsa-utils) |
 | Low coverage on ai_core.py | Normal — LLM-dependent paths need a running server |
 | Docker build fails | Ensure Docker is running and you have internet |
+
+---
+
+## ⚠️ Known Limitations
+
+Billiam OS is under active development. The following limitations are known and being addressed:
+
+| Limitation | Details |
+|------------|---------|
+| **Wake word is post-hoc, not real-time** | The current wake word implementation records a ~10s audio clip, transcribes it with Whisper, then checks for "Billiam" in the transcript. This is **not** a real-time trigger-word engine — it runs on full audio clips, not streaming audio. |
+| **Piper TTS is a system CLI dependency** | Offline TTS relies on the `piper` static binary, not a pip package. It must be installed via `scripts/install.sh` or downloaded from the [Piper GitHub releases](https://github.com/rhasspy/piper/releases). The installer handles this automatically. |
+| **Performance targets are aspirational** | The targets of >15 tok/s LLM inference and <600ms STT latency are design goals based on typical hardware. No formal benchmarks have been published yet. Actual performance depends on your CPU, RAM, and whether GPU acceleration is available. |
+| **PipeWire audio capture** | Audio capture currently uses `arecord` (ALSA). PipeWire-native capture via `pw-record` is planned but not yet implemented. If you use PipeWire, ensure `alsa-utils` is installed for the `arecord` compatibility layer. |
+| **LLM backend must be running separately** | Billiam OS connects to an LLM server (llama.cpp, Ollama, etc.) over HTTP. It does not bundle or auto-start the LLM backend — you must start it manually or via your own systemd units. |
+
+These limitations are tracked in the project's issue tracker. Contributions and improvements are welcome!
 
 ---
 
