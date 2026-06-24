@@ -8,6 +8,8 @@ Provides the argparse interface and main() entry point.
 
 import argparse
 import logging
+import os
+import signal
 import sys
 
 from .ai_core import AICore
@@ -15,6 +17,11 @@ from .billiam import BILLIAM_PROFILE
 from .config import get_config_value, load_config
 
 logger = logging.getLogger("billiam.cli")
+
+_PID_FILE = os.path.join(
+    os.environ.get("XDG_RUNTIME_DIR", os.path.expanduser("~/.cache/billiam-os")),
+    "billiam.pid",
+)
 
 
 def setup_logging() -> None:
@@ -69,7 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--daemon",
         action="store_true",
-        help="Run as a persistent daemon",
+        help="Run as a persistent system daemon (forks, writes PID file, handles signals)",
+    )
+    parser.add_argument(
+        "--no-fork",
+        action="store_true",
+        help="With --daemon, run in foreground (do not fork)",
     )
     parser.add_argument(
         "--version",
@@ -104,6 +116,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Check subcommand
     subparsers.add_parser("check", help="Validate all system dependencies")
+
+    # Setup wizard subcommand
+    subparsers.add_parser("setup", help="First-run wizard: checks LLM, tests voice, saves config")
 
     return parser
 
@@ -371,6 +386,268 @@ def _handle_config(args: argparse.Namespace) -> int:
         return 0
 
 
+def _daemonize(foreground: bool = False) -> None:
+    """Fork into background and write PID file.
+
+    Args:
+        foreground: If True, skip forking (run in foreground with PID file).
+    """
+    pid_dir = os.path.dirname(_PID_FILE)
+    os.makedirs(pid_dir, exist_ok=True)
+
+    if not foreground:
+        pid = os.fork()
+        if pid > 0:
+            # Parent exits — child continues as daemon
+            sys.exit(0)
+        # Child continues
+        os.setsid()
+        # Second fork to fully detach
+        pid2 = os.fork()
+        if pid2 > 0:
+            sys.exit(0)
+        # Grandchild continues
+
+    # Write PID file
+    with open(_PID_FILE, "w") as f:
+        print(os.getpid(), file=f)
+
+    # Redirect stdio to /dev/null for daemon mode
+    if not foreground:
+        sys.stdin.close()
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
+
+    logger.info("Daemon PID %d started (pidfile=%s)", os.getpid(), _PID_FILE)
+
+
+def _cleanup_daemon(signum: int, frame) -> None:
+    """Signal handler: remove PID file and exit."""
+    if os.path.exists(_PID_FILE):
+        os.unlink(_PID_FILE)
+    logger.info("Daemon shutting down (signal %d)", signum)
+    sys.exit(0)
+
+
+def _check_llm_port(port: int, name: str) -> tuple[bool, str]:
+    """Check if an LLM backend is listening on a port.
+
+    Args:
+        port: TCP port to check.
+        name: Human-readable backend name.
+
+    Returns:
+        (ok, detail) tuple.
+    """
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        result = s.connect_ex(("127.0.0.1", port))
+        s.close()
+        if result == 0:
+            return True, f"Found {name} on port {port}"
+        return False, f"No {name} detected on port {port}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _handle_setup(args: argparse.Namespace) -> int:
+    """First-run setup wizard for Billiam OS.
+
+    Checks for a running LLM backend, tests TTS and STT,
+    and saves a configuration file.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code (0 = all good).
+    """
+    import shutil
+    import sys
+    import tempfile
+    import time
+
+    from .config import DEFAULT_CONFIG, save_config
+    from .stt import STTModule
+    from .tts import TTSModule
+
+    CONFIG_PATH = os.path.expanduser("~/.config/billiam-os/config.yaml")
+
+    results: list[dict] = []
+
+    def record(name: str, ok: bool, detail: str = ""):
+        results.append({"name": name, "ok": ok, "detail": detail})
+        if ok:
+            print(f"  ✓ {name}")
+        else:
+            print(f"  ✗ {name}: {detail}")
+
+    print("╔" + "═" * 58 + "╗")
+    print("║  Billiam OS — First-Run Setup Wizard                ║")
+    print("╚" + "═" * 58 + "╝")
+    print()
+
+    # ── Step 1: LLM Backend ────────────────────────────────────────
+    print("Step 1: LLM Backend Check")
+    print("-" * 40)
+
+    ports_to_check = [
+        (11434, "Ollama"),
+        (1234, "LM Studio"),
+        (8080, "llama.cpp"),
+    ]
+
+    found_llm = False
+    for port, name in ports_to_check:
+        ok, detail = _check_llm_port(port, name)
+        record(f"LLM: {name} (port {port})", ok, detail)
+        if ok:
+            found_llm = True
+
+    if not found_llm:
+        instructions = (
+            "\n  No LLM backend detected. Start one of:\n"
+            "    • Ollama:    ollama serve  (or: systemctl start ollama)\n"
+            "    • LM Studio: Open app, start local inference server on port 1234\n"
+            "    • llama.cpp: ./server -m model.gguf --host 0.0.0.0 --port 8080\n"
+            "  Then re-run:  billiam setup"
+        )
+        print(instructions)
+        print()
+
+    # ── Step 2: TTS Test ───────────────────────────────────────────
+    print("Step 2: TTS (Text-to-Speech) Test")
+    print("-" * 40)
+
+    tts = TTSModule(use_edge=False, use_piper=True)
+    available_backends = tts.backends
+    if available_backends:
+        record("TTS backends available", True, f"Found: {', '.join(available_backends)}")
+    else:
+        record("TTS backends available", False, "No TTS backend found")
+
+    if tts.is_available:
+        print("  → Playing test phrase: 'Hello, I am Billiam, your AI butler.'")
+        ok = tts.speak("Hello, I am Billiam, your AI butler.", force_offline=True)
+        record("TTS playback test", ok, "Spoke test phrase" if ok else "Playback failed")
+    else:
+        record("TTS playback test", False, "No TTS backend to test")
+
+    print()
+
+    # ── Step 3: STT Test ───────────────────────────────────────────
+    print("Step 3: STT (Speech-to-Text) Test")
+    print("-" * 40)
+
+    has_recording_tool = bool(shutil.which("arecord") or shutil.which("parec"))
+    record("Recording tool available", has_recording_tool,
+           "arecord or parec found" if has_recording_tool else "Install arecord (alsa-utils) or parec (pulseaudio-utils)")
+
+    if has_recording_tool:
+        try:
+            stt = STTModule(model_size="tiny")  # tiny is fastest for setup test
+        except Exception as e:
+            stt = None
+            record("STT module init", False, str(e))
+
+        if stt is not None:
+            record("STT module initialized", True)
+
+            # Record a short sample
+            tmp_wav = os.path.join(tempfile.mkdtemp(), "setup_test.wav")
+            recorder = None
+            if shutil.which("arecord"):
+                recorder = ["arecord", "-r", "16000", "-c", "1", "-f", "S16_LE",
+                            "-d", "2", tmp_wav]
+            elif shutil.which("parec"):
+                recorder = ["parec", "--rate=16000", "--channels=1",
+                            "--format=s16le", "--record", "2",
+                            f"--file={tmp_wav}"]
+
+            if recorder:
+                print("  → Recording 2 seconds of audio for STT test...")
+                print("  → (Speak a short phrase now)")
+                try:
+                    subprocess.run(recorder, capture_output=True, timeout=5)
+                    # Transcribe
+                    text = stt.transcribe(tmp_wav)
+                    if text and text.strip():
+                        record("STT transcription test", True,
+                               f"Transcribed: '{text.strip()[:60]}'")
+                    else:
+                        record("STT transcription test", False,
+                               "No speech detected (try speaking louder)")
+                except Exception as e:
+                    record("STT transcription test", False, str(e))
+                finally:
+                    # Cleanup
+                    import shutil as shu
+                    shu.rmtree(os.path.dirname(tmp_wav), ignore_errors=True)
+            else:
+                record("STT recording", False, "No audio capture tool found")
+    else:
+        record("STT recording", False, "No recording tool (install alsa-utils)")
+
+    print()
+
+    # ── Step 4: Save Config ────────────────────────────────────────
+    print("Step 4: Save Configuration")
+    print("-" * 40)
+
+    # Merge detected settings into default config
+    config = DEFAULT_CONFIG.copy()
+    config["billiam"]["name"] = "Billiam"
+    config["billiam"]["wake_word"] = "billiam"
+    config["billiam"]["polite_mode"] = True
+
+    # If we found an LLM, set the api_base based on first found
+    for port, name in ports_to_check:
+        ok, _ = _check_llm_port(port, name)
+        if ok:
+            if port == 11434:
+                config["llm"]["api_base"] = "http://localhost:11434/v1"
+                config["llm"]["model"] = "qwen2.5-coder:3b"
+            elif port == 1234:
+                config["llm"]["api_base"] = "http://localhost:1234/v1"
+            elif port == 8080:
+                config["llm"]["api_base"] = "http://localhost:8080/v1"
+            break
+
+    ok = save_config(config, CONFIG_PATH)
+    if ok:
+        record("Configuration saved", True, f"Saved to {CONFIG_PATH}")
+    else:
+        record("Configuration saved", False, "Failed to save config")
+
+    print()
+
+    # ── Summary ────────────────────────────────────────────────────
+    print("╔" + "═" * 58 + "╗")
+    print("║  Setup Summary                                          ║")
+    print("╚" + "═" * 58 + "╝")
+
+    passed = sum(1 for r in results if r["ok"])
+    failed = sum(1 for r in results if not r["ok"])
+    total = len(results)
+
+    for r in results:
+        status = "✓" if r["ok"] else "✗"
+        print(f"  {status} {r['name']}")
+
+    print()
+    if failed == 0:
+        print(f"  Result: ALL {total} CHECKS PASSED ✓")
+        print("  Billiam OS is ready to use!")
+    else:
+        print(f"  Result: {passed}/{total} passed, {failed} failed")
+        print("  Some checks need attention. Review the details above.")
+        print("  Re-run: billiam setup")
+
+    return 0 if failed == 0 else 1
+
+
 def main() -> int:
     """CLI entry point for Billiam OS.
 
@@ -382,8 +659,13 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.version:
-        from . import __version__
-        print(f"Billiam OS v{__version__}")
+        try:
+            import importlib.metadata
+            ver = importlib.metadata.version("billiam-os")
+        except Exception:
+            from . import __version__  # noqa: F811
+            ver = __version__
+        print(f"Billiam OS v{ver}")
         return 0
 
     # Handle subcommands
@@ -395,6 +677,16 @@ def main() -> int:
         return _handle_docs(args)
     elif args.command == "check":
         return _handle_check(args)
+    elif args.command == "setup":
+        return _handle_setup(args)
+
+    # Deprecation warning for --daemon when used without actual daemon intent
+    # (old behavior was just interactive with voice — now it truly daemonizes)
+    if args.daemon:
+        logger.info(
+            "--daemon now performs true daemonization (fork+PID+signals). "
+            "For interactive mode with voice use: billiam --voice --stt"
+        )
 
     # Allow CLI args to override config defaults
     config = load_config()
@@ -412,8 +704,12 @@ def main() -> int:
         response = core.run_once(args.once)
         print(response)
         return 0
-    elif args.daemon:
+
+    if args.daemon:
         print(f"{core.assistant_name} OS Daemon starting...")
+        _daemonize(foreground=args.no_fork)
+        signal.signal(signal.SIGTERM, _cleanup_daemon)
+        signal.signal(signal.SIGINT, _cleanup_daemon)
         if core._audio_daemon:
             core._audio_daemon.start()
         core.run_interactive()

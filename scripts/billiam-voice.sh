@@ -15,6 +15,15 @@ DURATION="${1:-5}"
 
 cd "$(dirname "$0")/.."
 
+# Ensure cleanup of temp file on exit or interrupt
+TMPFILE=""
+cleanup() {
+    if [ -n "$TMPFILE" ] && [ -f "$TMPFILE" ]; then
+        rm -f "$TMPFILE"
+    fi
+}
+trap cleanup EXIT INT TERM
+
 echo "🎤 Listening for ${DURATION}s... (speak after the beep)"
 echo ""
 
@@ -26,12 +35,12 @@ python -m core.ai_core --once "Listen and process voice command for ${DURATION} 
 
     # Fallback: use arecord directly + whisper
     echo "Direct recording mode..."
-    TMPFILE=$(mktemp /tmp/billiam-voice-XXXXXX.wav)
+    TMPFILE=$(mktemp /tmp/billiam-voice-XXXXXXXX.wav)
 
     arecord -r 16000 -c 1 -f S16_LE -d "$DURATION" "$TMPFILE" 2>/dev/null || {
         echo "Error: No recording device found."
         echo "Install alsa-utils: sudo pacman -S alsa-utils"
-        rm -f "$TMPFILE"
+        cleanup
         exit 1
     }
 
@@ -54,5 +63,5 @@ else:
     print('No speech detected.')
 " 2>/dev/null
 
-    rm -f "$TMPFILE"
+    cleanup
 }

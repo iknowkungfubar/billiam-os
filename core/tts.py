@@ -29,17 +29,32 @@ DEFAULT_PITCH = "+0Hz"
 FALLBACK_VOICE = "mb-en1"
 
 # Piper TTS configuration
-PIPER_VOICE_NAME = "en_GB-southern_english_female-medium"
+# Users can customize PIPER_VOICE_NAME to any available Piper voice:
+#   - en_GB-vctk-k_southern_english_male-medium (British male, VCTK)
+#   - en_GB-southern_english_female-medium      (British female, default)
+#   - en_US-lessac-medium                       (American female)
+#   - en_US-amy-medium                          (American female)
+# See: https://github.com/rhasspy/piper-voices
+PIPER_VOICE_NAME = "en_GB-vctk-k_southern_english_male-medium"
 PIPER_MODEL_FILE = f"{PIPER_VOICE_NAME}.onnx"
 PIPER_CONFIG_FILE = f"{PIPER_VOICE_NAME}.json"
 PIPER_HF_REPO = "rhasspy/piper-voices"
+# Voice URL is auto-derived from PIPER_VOICE_NAME parts:
+#   en_GB-vctk-k_southern_english_male-medium →
+#   en/en_GB/vctk-k_southern_english_male/medium/{file}
+PIPER_VOICE_PARTS = PIPER_VOICE_NAME.replace("-medium", "").split("-", 1)
+PIPER_LANG_CODE = PIPER_VOICE_PARTS[0]  # e.g. "en_GB"
+PIPER_LANG_FAMILY = PIPER_LANG_CODE.split("_")[0]  # e.g. "en"
+PIPER_HF_LANG_PATH = f"{PIPER_LANG_FAMILY}/{PIPER_LANG_CODE}"  # e.g. "en/en_GB"
+PIPER_HF_SPEAKER = PIPER_VOICE_PARTS[1]
+PIPER_HF_QUALITY = "medium"
 PIPER_HF_MODEL_URL = (
     f"https://huggingface.co/{PIPER_HF_REPO}/resolve/main/"
-    f"en/en_GB/southern_english_female/medium/{PIPER_MODEL_FILE}"
+    f"{PIPER_HF_LANG_PATH}/{PIPER_HF_SPEAKER}/{PIPER_HF_QUALITY}/{PIPER_MODEL_FILE}"
 )
 PIPER_HF_CONFIG_URL = (
     f"https://huggingface.co/{PIPER_HF_REPO}/resolve/main/"
-    f"en/en_GB/southern_english_female/medium/{PIPER_CONFIG_FILE}"
+    f"{PIPER_HF_LANG_PATH}/{PIPER_HF_SPEAKER}/{PIPER_HF_QUALITY}/{PIPER_CONFIG_FILE}"
 )
 PIPER_CACHE_DIR = os.path.expanduser("~/.cache/billiam-os/piper")
 

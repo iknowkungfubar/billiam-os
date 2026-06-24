@@ -6,9 +6,15 @@ into a voice-controllable, agent-driven personal digital assistant with
 a British butler personality named Billiam.
 """
 
-__version__ = "0.2.0"
+import importlib.metadata
+
 __author__ = "Billiam OS Contributors"
 __license__ = "GPL-3.0"
+
+try:
+    __version__ = importlib.metadata.version("billiam-os")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "1.0.0"  # fallback when not installed
 
 from .ai_core import AICore
 from .audio import AudioDaemon

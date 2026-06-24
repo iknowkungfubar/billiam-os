@@ -7,11 +7,9 @@ After=network.target sound.target
 Type=simple
 Environment=BILLIAM_API_BASE=http://localhost:8080/v1
 Environment=BILLIAM_MODEL=qwen-2.5-coder-3b-instruct
-Environment=BILLIAM_MEMORY_PATH=%h/.config/aios/memory.json
 Environment=BILLIAM_TEMPERATURE=0.2
 Environment=BILLIAM_MAX_TOKENS=512
-ExecStart=%h/billiam-os/.venv/bin/python -m core.ai_core
-WorkingDirectory=%h/billiam-os
+ExecStart=billiam --daemon --no-fork
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

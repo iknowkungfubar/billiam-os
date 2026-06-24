@@ -11,6 +11,11 @@
 #   bash scripts/install.sh --uninstall  # Remove Billiam OS
 #   bash scripts/install.sh --help       # Show help
 #
+# Supported distributions:
+#   - Arch Linux (pacman)
+#   - Debian / Ubuntu (apt-get)
+#   - Fedora (dnf)
+#
 
 set -euo pipefail
 
@@ -22,6 +27,73 @@ NC='\033[0m' # No Color
 
 BILLIAM_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/billiam-os"
 SERVICE_NAME="billiam-os.service"
+
+# ── Package Manager Detection ────────────────────────────────────────────────
+detect_package_manager() {
+    if command -v pacman &>/dev/null; then
+        echo "pacman"
+    elif command -v apt-get &>/dev/null; then
+        echo "apt-get"
+    elif command -v dnf &>/dev/null; then
+        echo "dnf"
+    else
+        echo "unsupported"
+    fi
+}
+
+PACKAGE_MANAGER="$(detect_package_manager)"
+SYSTEM_DEPS=()
+
+case "$PACKAGE_MANAGER" in
+    pacman)
+        SYSTEM_DEPS=(
+            "ffmpeg:ffmpeg"
+            "espeak-ng:espeak-ng"
+            "arecord:alsa-utils"
+            "lspci:pciutils"
+        )
+        PKG_INSTALL="sudo pacman -S --noconfirm"
+        PKG_QUERY="pacman -Qi"
+        ;;
+    apt-get)
+        SYSTEM_DEPS=(
+            "ffmpeg:ffmpeg"
+            "espeak-ng:espeak-ng"
+            "arecord:alsa-utils"
+            "lspci:pciutils"
+        )
+        PKG_INSTALL="sudo apt-get install -y"
+        PKG_QUERY="dpkg -l"
+        ;;
+    dnf)
+        SYSTEM_DEPS=(
+            "ffmpeg:ffmpeg"
+            "espeak-ng:espeak-ng"
+            "arecord:alsa-utils"
+            "lspci:pciutils"
+        )
+        PKG_INSTALL="sudo dnf install -y"
+        PKG_QUERY="rpm -q"
+        ;;
+    *)
+        echo -e "${RED}Error: Unsupported Linux distribution.${NC}"
+        echo ""
+        echo "Billiam OS officially supports:"
+        echo "  - Arch Linux (pacman)"
+        echo "  - Debian / Ubuntu (apt-get)"
+        echo "  - Fedora (dnf)"
+        echo ""
+        echo "For other distributions, please manually install:"
+        echo "  - ffmpeg"
+        echo "  - espeak-ng"
+        echo "  - alsa-utils (arecord)"
+        echo "  - pciutils (lspci)"
+        echo "  - python3-pip"
+        echo ""
+        echo "Then run: pip install -r requirements.txt"
+        exit 1
+        ;;
+esac
 
 show_help() {
     echo "Billiam OS — Installation Script"
@@ -35,8 +107,8 @@ show_help() {
     echo ""
     echo "Manual setup after install:"
     echo "  1. Start an LLM backend (llama.cpp, Ollama, etc.)"
-    echo "  2. Run: python -m core.ai_core"
-    echo "  3. Or enable the systemd service"
+    echo "  2. Run: billiam --voice"
+    echo "  3. Or enable the systemd service: systemctl --user enable --now billiam-os.service"
     echo ""
     exit 0
 }
@@ -152,20 +224,15 @@ echo -e "${GREEN}    Dependencies installed.${NC}"
 echo ""
 echo -e "${YELLOW}==> Step 2/5: Checking system dependencies...${NC}"
 
-SYSTEM_DEPS=(
-    "ffmpeg:ffmpeg"
-    "espeak-ng:espeak-ng"
-    "arecord:alsa-utils"
-    "lspci:pciutils"
-)
-
 for dep in "${SYSTEM_DEPS[@]}"; do
     CMD="${dep%%:*}"
     PKG="${dep##*:}"
     if command -v "$CMD" &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} $CMD found"
     else
-        echo -e "  ${YELLOW}⚠${NC} $CMD not found (install: sudo pacman -S $PKG)"
+        echo -e "  ${YELLOW}⚠${NC} $CMD not found (install: $PKG_INSTALL $PKG)"
+        echo -e "  ${YELLOW}  → Installing $PKG...${NC}"
+        $PKG_INSTALL "$PKG" 2>&1 | tail -1
     fi
 done
 
@@ -309,14 +376,13 @@ echo -e "${GREEN}║      Billiam OS Installation Complete!    ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════╝${NC}"
 echo ""
 echo "  Quick start:"
-echo "    cd $(pwd)"
-echo "    python -m core.ai_core"
+echo "    billiam --once \"What's my hostname?\""
 echo ""
-echo "  With British butler voice:"
-echo "    python -m core.ai_core --voice"
+echo "  Interactive mode with British butler voice:"
+echo "    billiam --voice"
 echo ""
 echo "  Full daemon (voice + listening):"
-echo "    python -m core.ai_core --daemon"
+echo "    billiam --daemon"
 echo ""
 echo "  First, start your LLM backend (see docs/architecture.md):"
 echo "    bash scripts/setup_inference.sh"
