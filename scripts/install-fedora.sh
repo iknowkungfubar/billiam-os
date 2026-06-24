@@ -34,7 +34,8 @@ sudo dnf install -y \
     ffmpeg \
     alsa-utils \
     python3-pip \
-    pciutils
+    pciutils \
+    mbrola
 
 echo ""
 echo "==> Installing Piper TTS (offline neural TTS)..."

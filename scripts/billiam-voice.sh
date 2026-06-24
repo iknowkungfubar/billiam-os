@@ -8,6 +8,7 @@
 #
 # Usage: bash scripts/billiam-voice.sh [duration_seconds]
 #
+# Pipeline: arecord → STT (faster-whisper) → billiam --once --voice → TTS
 
 set -euo pipefail
 
@@ -30,38 +31,38 @@ echo ""
 # Beep to indicate recording start
 echo -ne '\a'
 
-# Run Billiam with STT + TTS enabled for one voice command
-python -m core.cli --once "Listen and process voice command for ${DURATION} seconds" --voice --stt 2>/dev/null || {
+# ── Record audio ───────────────────────────────────────────────────
+TMPFILE=$(mktemp /tmp/billiam-voice-XXXXXXXX.wav)
 
-    # Fallback: use arecord directly + whisper
-    echo "Direct recording mode..."
-    TMPFILE=$(mktemp /tmp/billiam-voice-XXXXXXXX.wav)
+arecord -r 16000 -c 1 -f S16_LE -d "$DURATION" "$TMPFILE" 2>/dev/null || {
+    echo "Error: No recording device found."
+    echo "Install alsa-utils: sudo pacman -S alsa-utils"
+    cleanup
+    exit 1
+}
 
-    arecord -r 16000 -c 1 -f S16_LE -d "$DURATION" "$TMPFILE" 2>/dev/null || {
-        echo "Error: No recording device found."
-        echo "Install alsa-utils: sudo pacman -S alsa-utils"
-        cleanup
-        exit 1
-    }
-
-    # Transcribe via Billiam
-    echo "Transcribing..."
-    python -c "
+# ── Transcribe with STT ────────────────────────────────────────────
+echo "Transcribing..."
+TRANSCRIPT=$(python -c "
 import sys
 sys.path.insert(0, '.')
 from core.stt import STTModule
 stt = STTModule(model_size='base')
 text = stt.transcribe('$TMPFILE')
 if text:
-    print('You said:', text)
-    # Process through AI Core
-    from core.ai_core import AICore
-    core = AICore(enable_tts=True)
-    response = core.process_input(text)
-    print('Billiam:', response)
-else:
-    print('No speech detected.')
-" 2>/dev/null
+    print(text)
+" 2>/dev/null)
 
+if [ -z "$TRANSCRIPT" ]; then
+    echo "No speech detected."
     cleanup
-}
+    exit 0
+fi
+
+echo "You said: $TRANSCRIPT"
+
+# ── Process through Billiam with TTS ───────────────────────────────
+echo "Processing..."
+python -m core.cli --once "$TRANSCRIPT" --voice 2>/dev/null
+
+cleanup

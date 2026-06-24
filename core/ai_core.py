@@ -332,7 +332,16 @@ class AICore:
 
         This is the primary entry point for testing and daily use.
         Type 'exit' or 'quit' to stop. Ctrl+C also works.
+
+        When ``--stt`` is enabled, a background thread listens for
+        voice input via the microphone and feeds transcriptions
+        through a :class:`queue.Queue`.  The main loop checks the
+        queue before each ``input()`` call, so voice input is picked
+        up immediately.
         """
+        import queue
+        import threading
+
         print(f"\n{'=' * 60}")
         print(f"  {self.assistant_name} — Your Personal Digital Butler")
         print(f"  Model: {self.model}")
@@ -351,11 +360,46 @@ class AICore:
 
         print(f"{self.assistant_name}: {get_catchphrase('welcome')}\n")
 
+        # ── Voice input background thread ─────────────────────────────
+        # When --stt is active, a daemon thread captures microphone
+        # audio and queues transcriptions.  The main loop checks the
+        # queue non-blocking before each prompt, so voice arrives
+        # alongside (or instead of) typed input.
+        voice_queue: queue.Queue = queue.Queue()
+
+        if self.enable_stt and self._stt:
+
+            def _voice_listener() -> None:
+                """Background worker: listen and queue transcriptions."""
+                while True:
+                    try:
+                        text = self._stt.listen(duration=3)
+                        if text and text.strip():
+                            voice_queue.put(text)
+                    except Exception:
+                        import time
+                        time.sleep(0.5)
+
+            threading.Thread(target=_voice_listener, daemon=True).start()
+            print("  🎤 Voice input active — speak after the prompt\n")
+
         while True:
             try:
-                user_in = input("👤  You: ").strip()
-                if not user_in:
-                    continue
+                # Check for voice input first (non-blocking)
+                user_in: str | None = None
+                if self.enable_stt:
+                    try:
+                        user_in = voice_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+
+                if user_in is not None:
+                    print(f"👤  You (voice): {user_in}")
+                else:
+                    user_in = input("👤  You: ").strip()
+                    if not user_in:
+                        continue
+
                 if user_in.lower() in ("exit", "quit", "/exit", "/quit"):
                     farewell = get_catchphrase("farewell")
                     print(f"\n{self.assistant_name}: {farewell}")

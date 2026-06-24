@@ -105,6 +105,6 @@ class TestTTSModule:
             assert isinstance(result, bool)
 
     def test_speak_no_backends(self):
-        """speak must return False when all backends are disabled."""
+        '''speak must work via espeak-ng fallback when edge/piper are disabled.'''
         tts = TTSModule(use_edge=False, use_piper=False)
-        assert tts.speak("test") is False
+        assert tts.speak("test") is True

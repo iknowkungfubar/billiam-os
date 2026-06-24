@@ -174,15 +174,33 @@ class STTModule:
         for cmd_template in capture_cmds:
             try:
                 if "parec" in cmd_template[0]:
-                    # parec outputs raw PCM, need to wrap in WAV
+                    # parec outputs raw PCM — capture it and wrap in WAV
                     raw_file = tmp_path.replace(".wav", ".raw")
                     proc = subprocess.Popen(
-                        cmd_template, stdout=subprocess.DEVNULL,
+                        cmd_template,
+                        stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
-                    # Simpler: just use arecord for now
-                    proc.kill()
-                    proc.wait()
+                    try:
+                        proc.wait(timeout=duration + 5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait()
+
+                    if proc.returncode == 0 and os.path.exists(raw_file):
+                        file_size = os.path.getsize(raw_file)
+                        if file_size > 1000:  # At least 1KB of audio
+                            # Convert raw PCM to WAV using the wave module
+                            import wave
+                            with wave.open(tmp_path, "wb") as wav:
+                                wav.setnchannels(CHANNELS)
+                                wav.setsampwidth(2)  # 16-bit = 2 bytes
+                                wav.setframerate(SAMPLE_RATE)
+                                with open(raw_file, "rb") as raw:
+                                    wav.writeframes(raw.read())
+                            logger.debug("Captured %d bytes via parec", file_size)
+                            return tmp_path
+                    logger.debug("parec capture failed or too small")
                     continue
 
                 logger.debug("Recording %ss audio via %s...", duration, cmd_template[0])

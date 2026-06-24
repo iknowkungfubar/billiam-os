@@ -51,9 +51,11 @@ case "$PACKAGE_MANAGER" in
             "espeak-ng:espeak-ng"
             "arecord:alsa-utils"
             "lspci:pciutils"
+            "mbrola:mbrola"
         )
         PKG_INSTALL="sudo pacman -S --noconfirm"
         PKG_QUERY="pacman -Qi"
+        MBROLA_DATA_PKG="espeak-ng-data-mbrola"
         # Piper TTS is available as piper-tts-bin in AUR
         PIPER_AUR=true
         ;;
@@ -63,9 +65,11 @@ case "$PACKAGE_MANAGER" in
             "espeak-ng:espeak-ng"
             "arecord:alsa-utils"
             "lspci:pciutils"
+            "mbrola:mbrola"
         )
         PKG_INSTALL="sudo apt-get install -y"
         PKG_QUERY="dpkg -l"
+        MBROLA_DATA_PKG="espeak-ng-data-mbrola"
         PIPER_AUR=false
         ;;
     dnf)
@@ -74,9 +78,11 @@ case "$PACKAGE_MANAGER" in
             "espeak-ng:espeak-ng"
             "arecord:alsa-utils"
             "lspci:pciutils"
+            "mbrola:mbrola"
         )
         PKG_INSTALL="sudo dnf install -y"
         PKG_QUERY="rpm -q"
+        MBROLA_DATA_PKG="espeak-ng-data-mbrola"
         PIPER_AUR=false
         ;;
     *)
@@ -265,6 +271,16 @@ for dep in "${SYSTEM_DEPS[@]}"; do
         $PKG_INSTALL "$PKG" 2>&1 | tail -1
     fi
 done
+
+# Install mbrola voice data package (only if mbrola binary was installed)
+if command -v mbrola &>/dev/null && [ -n "${MBROLA_DATA_PKG:-}" ]; then
+    if $PKG_QUERY "$MBROLA_DATA_PKG" &>/dev/null 2>&1; then
+        echo -e "  ${GREEN}✓${NC} $MBROLA_DATA_PKG found"
+    else
+        echo -e "  ${YELLOW}⚠${NC} $MBROLA_DATA_PKG not found — installing..."
+        $PKG_INSTALL "$MBROLA_DATA_PKG" 2>&1 | tail -1 || true
+    fi
+fi
 
 # ── Piper TTS ──────────────────────────────────────────────────────────────────
 echo ""

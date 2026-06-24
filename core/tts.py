@@ -26,7 +26,10 @@ logger = logging.getLogger("billiam.tts")
 DEFAULT_VOICE = "en-GB-RyanNeural"
 DEFAULT_RATE = "+0%"
 DEFAULT_PITCH = "+0Hz"
-FALLBACK_VOICE = "mb-en1"
+# Fallback voice for espeak-ng.
+# 'en' is espeak-ng's built-in English voice (always available).
+# To use the MBROLA British voice (requires mbrola package), change to 'mb-en1'.
+FALLBACK_VOICE = "en"
 
 # Piper TTS configuration
 # Users can customize PIPER_VOICE_NAME to any available Piper voice:
@@ -363,7 +366,13 @@ class TTSModule:
     def _speak_espeak(self, text: str) -> bool:
         """Speak using espeak-ng (offline fallback).
 
-        Uses MBROLA voice for British accent if available.
+        Tries MBROLA British voice (mb-en1) first — requires the
+        'mbrola' system package.  Falls back to espeak-ng's built-in
+        English voice ('en') which is always available.
+
+        Users who install mbrola can customise ``FALLBACK_VOICE`` to
+        ``"mb-en1"`` at the top of this module for a more natural
+        British accent.
 
         Args:
             text: Text to speak.
@@ -371,16 +380,26 @@ class TTSModule:
         Returns:
             True if speech succeeded.
         """
-        try:
-            cmd = ["espeak-ng", "-v", FALLBACK_VOICE, "-s", "150", "-p", "50", text]
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=30
-            )
-            return result.returncode == 0
+        # Try MBROLA voice first (requires mbrola package), then
+        # fall back to espeak-ng's built-in English voice.
+        for voice in ("mb-en1", FALLBACK_VOICE):
+            try:
+                cmd = ["espeak-ng", "-v", voice, "-s", "150", "-p", "50", text]
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode == 0:
+                    return True
+                logger.debug(
+                    "espeak-ng voice '%s' failed: %s",
+                    voice, result.stderr.strip()[:80],
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                logger.debug("espeak-ng voice '%s' unavailable", voice)
+                continue
 
-        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-            logger.error("espeak-ng failed: %s", e)
-            return False
+        logger.error("espeak-ng failed for all voices")
+        return False
 
     # ── Public API ────────────────────────────────────────────────────────────
 
