@@ -31,7 +31,7 @@ echo ""
 echo -ne '\a'
 
 # Run Billiam with STT + TTS enabled for one voice command
-python -m core.ai_core --once "Listen and process voice command for ${DURATION} seconds" --voice --stt 2>/dev/null || {
+python -m core.cli --once "Listen and process voice command for ${DURATION} seconds" --voice --stt 2>/dev/null || {
 
     # Fallback: use arecord directly + whisper
     echo "Direct recording mode..."

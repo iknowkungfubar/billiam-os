@@ -219,15 +219,20 @@ def _handle_check(args: argparse.Namespace) -> int:
     for tool in ["arecord", "parec"]:
         check(f"Audio capture: {tool}", bool(shutil.which(tool)))
 
-    # Network
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        result = s.connect_ex(("localhost", 8080))
-        check("LLM backend (localhost:8080)", result == 0, f"connect returned {result}")
-        s.close()
-    except Exception as e:
-        check("LLM backend (localhost:8080)", False, str(e))
+    # Network — probe common LLM backend ports
+    ports_to_check = [
+        (11434, "Ollama"),
+        (1234, "LM Studio / OpenAI-compatible"),
+        (8080, "llama.cpp / common"),
+    ]
+    any_llm = False
+    for port, name in ports_to_check:
+        ok, detail = _check_llm_port(port, name)
+        check(f"LLM backend {name} (port {port})", ok, detail)
+        if ok:
+            any_llm = True
+    if not any_llm:
+        check("LLM backend (any)", False, "No LLM backend detected on common ports")
 
     print("=" * 60)
     total = passed + failed
@@ -450,6 +455,49 @@ def _check_llm_port(port: int, name: str) -> tuple[bool, str]:
         return False, f"No {name} detected on port {port}"
     except Exception as e:
         return False, str(e)
+
+
+def _run_daemon_event_loop(core: AICore) -> None:
+    """Daemon event loop — voice-driven, never reads from stdin.
+
+    Sets up the STT → LLM → TTS pipeline, then sleeps until a
+    signal (SIGTERM/SIGINT) triggers shutdown.  Safe to call after
+    ``sys.stdin.close()`` (i.e. after daemonization).
+
+    Args:
+        core: Initialized :class:`AICore` instance.
+    """
+    import time
+
+    logger.info("Daemon event loop starting")
+
+    # Wire up STT → LLM → TTS pipeline via the audio daemon
+    if core._audio_daemon:
+        core._audio_daemon.set_command_callback(core.process_input)
+        core._audio_daemon.start()
+        wake_word = BILLIAM_PROFILE.get("wake_word", "billiam")
+        logger.info("Voice listening active (wake word: '%s')", wake_word)
+    else:
+        logger.warning(
+            "No voice subsystem available — daemon running idle. "
+            "Install edge-tts and faster-whisper for voice support."
+        )
+
+    # Register signal handlers for clean shutdown (PID file removal,
+    # audio daemon stop).
+    signal.signal(signal.SIGTERM, _cleanup_daemon)
+    signal.signal(signal.SIGINT, _cleanup_daemon)
+
+    # Main loop — signals interrupt ``sleep()`` and trigger shutdown
+    try:
+        while True:
+            time.sleep(60)
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        if core._audio_daemon:
+            core._audio_daemon.stop()
+        logger.info("Daemon event loop exited")
 
 
 def _handle_setup(args: argparse.Namespace) -> int:
@@ -708,11 +756,7 @@ def main() -> int:
     if args.daemon:
         print(f"{core.assistant_name} OS Daemon starting...")
         _daemonize(foreground=args.no_fork)
-        signal.signal(signal.SIGTERM, _cleanup_daemon)
-        signal.signal(signal.SIGINT, _cleanup_daemon)
-        if core._audio_daemon:
-            core._audio_daemon.start()
-        core.run_interactive()
+        _run_daemon_event_loop(core)
     else:
         core.run_interactive()
 

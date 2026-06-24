@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "billiam-os"
-version = "1.0.0"
+version = "1.1.0"
 description = "AI-Powered Linux OS Layer — Voice-controllable, agent-driven personal digital assistant"
 readme = "README.md"
 license = {text = "GPL-3.0"}
@@ -19,6 +19,12 @@ dependencies = [
     "openai>=1.0",
     "pyyaml>=6.0",
     "requests>=2.28",
+]
+
+[project.optional-dependencies]
+voice = [
+    "edge-tts>=6.0",
+    "faster-whisper>=1.0",
 ]
 
 [project.scripts]

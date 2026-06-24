@@ -14,7 +14,7 @@ __license__ = "GPL-3.0"
 try:
     __version__ = importlib.metadata.version("billiam-os")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "1.0.0"  # fallback when not installed
+    __version__ = "1.1.0"  # fallback when not installed
 
 from .ai_core import AICore
 from .audio import AudioDaemon

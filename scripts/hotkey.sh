@@ -39,9 +39,9 @@ fi
 cd "$(dirname "$0")/.."
 
 if [ "$ENABLE_TTS" = "yes" ]; then
-    python -m core.ai_core --once "$QUERY" --voice 2>>"$BILLIAM_LOG"
+    python -m core.cli --once "$QUERY" --voice 2>>"$BILLIAM_LOG"
 else
-    python -m core.ai_core --once "$QUERY" 2>>"$BILLIAM_LOG"
+    python -m core.cli --once "$QUERY" 2>>"$BILLIAM_LOG"
 fi
 
 # Show notification with response
