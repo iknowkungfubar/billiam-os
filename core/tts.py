@@ -166,6 +166,25 @@ class TTSModule:
         """Check if a Piper voice model is already downloaded."""
         return os.path.exists(self._get_piper_model_path())
 
+    @staticmethod
+    def _urlretrieve_with_progress(url: str, path: str) -> None:
+        """Download a file with optional tqdm progress bar.
+
+        Falls back to plain urlretrieve if tqdm is not available.
+        """
+        try:
+            from tqdm import tqdm
+
+            with tqdm(unit="B", unit_scale=True, unit_divisor=1024,
+                      miniters=1, desc="Downloading") as pbar:
+                def reporthook(block_num: int, block_size: int, total_size: int) -> None:
+                    if total_size > 0:
+                        pbar.total = total_size
+                    pbar.update(block_size)
+                urllib.request.urlretrieve(url, path, reporthook=reporthook)
+        except ImportError:
+            urllib.request.urlretrieve(url, path)
+
     def download_piper_model(self) -> bool:
         """Download the Piper voice model from HuggingFace.
 
@@ -190,11 +209,11 @@ class TTSModule:
 
             # Download model (.onnx)
             logger.info("  Downloading model file...")
-            urllib.request.urlretrieve(PIPER_HF_MODEL_URL, model_path)
+            self._urlretrieve_with_progress(PIPER_HF_MODEL_URL, model_path)
 
             # Download config (.json)
             logger.info("  Downloading config file...")
-            urllib.request.urlretrieve(PIPER_HF_CONFIG_URL, config_path)
+            self._urlretrieve_with_progress(PIPER_HF_CONFIG_URL, config_path)
 
             logger.info("Piper model downloaded successfully.")
             self._piper_model_ready = True
@@ -213,7 +232,7 @@ class TTSModule:
     def _play_audio(self, audio_file: str) -> bool:
         """Play audio file through system audio output.
 
-        Tries: ffplay, paplay, aplay, then falls back to subprocess.
+        Tries: ffplay, pw-play, paplay, aplay, then falls back to subprocess.
 
         Args:
             audio_file: Path to audio file.
@@ -234,7 +253,9 @@ class TTSModule:
                 ["ffplay", "-nodisp", "-autoexit", "-v", "0", audio_file]
             )
 
-        # Try PipeWire
+        # Try PipeWire (pw-play is the newer PipeWire client)
+        players.append(["pw-play", audio_file])
+        # Try PulseAudio/PipeWire (legacy)
         players.append(["paplay", audio_file])
         # Try ALSA
         players.append(["aplay", audio_file])
@@ -305,11 +326,6 @@ class TTSModule:
                 if not self.download_piper_model():
                     return False
 
-            with tempfile.NamedTemporaryFile(
-                suffix=".wav", delete=False
-            ) as tmp:
-                wav_path = tmp.name
-
             # Run: echo "text" | piper --model model.onnx --output-raw | aplay -r 22050 -f S16_LE
             try:
                 piper_proc = subprocess.Popen(
@@ -337,9 +353,6 @@ class TTSModule:
             except (subprocess.TimeoutExpired, BrokenPipeError):
                 logger.warning("Piper TTS timed out or pipe broken")
                 return False
-            finally:
-                if os.path.exists(wav_path):
-                    os.unlink(wav_path)
 
             return False
 

@@ -171,7 +171,7 @@ llama-server -m qwen2.5-coder-3b.gguf --host 0.0.0.0 --port 8080 -ngl 0 -c 4096
 ### Window Manager Integration
 - **i3wm:** `bindsym $mod+space exec /path/to/billiam-os/trigger.sh`
 - **Hyprland:** Similar keybind configuration
-- Trigger script pipes input to `python -m core.ai_core --once "..."`
+- Trigger script pipes input to `billiam --once "..."`
 
 ## Performance Budget
 

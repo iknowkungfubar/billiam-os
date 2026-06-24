@@ -54,6 +54,8 @@ case "$PACKAGE_MANAGER" in
         )
         PKG_INSTALL="sudo pacman -S --noconfirm"
         PKG_QUERY="pacman -Qi"
+        # Piper TTS is available as piper-tts-bin in AUR
+        PIPER_AUR=true
         ;;
     apt-get)
         SYSTEM_DEPS=(
@@ -64,6 +66,7 @@ case "$PACKAGE_MANAGER" in
         )
         PKG_INSTALL="sudo apt-get install -y"
         PKG_QUERY="dpkg -l"
+        PIPER_AUR=false
         ;;
     dnf)
         SYSTEM_DEPS=(
@@ -74,6 +77,7 @@ case "$PACKAGE_MANAGER" in
         )
         PKG_INSTALL="sudo dnf install -y"
         PKG_QUERY="rpm -q"
+        PIPER_AUR=false
         ;;
     *)
         echo -e "${RED}Error: Unsupported Linux distribution.${NC}"
@@ -212,6 +216,32 @@ if [ "$TOTAL_RAM_MB" -lt 8000 ]; then
     fi
 fi
 
+# ── Build Dependencies (needed before pip install for faster-whisper) ──────
+echo ""
+echo -e "${YELLOW}==> Installing build dependencies (needed by faster-whisper)...${NC}"
+
+BUILD_DEPS=()
+case "$PACKAGE_MANAGER" in
+    pacman)
+        BUILD_DEPS=("base-devel")  # Provides gcc, cmake, make
+        ;;
+    apt-get)
+        BUILD_DEPS=("build-essential" "cmake" "cython3")
+        ;;
+    dnf)
+        BUILD_DEPS=("gcc-c++" "cmake" "cython")
+        ;;
+esac
+
+for pkg in "${BUILD_DEPS[@]}"; do
+    if $PKG_QUERY "$pkg" &>/dev/null 2>&1; then
+        echo -e "  ${GREEN}✓${NC} $pkg found"
+    else
+        echo -e "  ${YELLOW}⚠${NC} $pkg not found — installing..."
+        $PKG_INSTALL "$pkg" 2>&1 | tail -1 || echo -e "  ${RED}✗${NC} Failed to install $pkg"
+    fi
+done
+
 # ── Step 1: Python dependencies ──────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}==> Step 1/5: Installing Python dependencies...${NC}"
@@ -235,6 +265,65 @@ for dep in "${SYSTEM_DEPS[@]}"; do
         $PKG_INSTALL "$PKG" 2>&1 | tail -1
     fi
 done
+
+# ── Piper TTS ──────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${YELLOW}==> Installing Piper TTS (offline neural TTS)...${NC}"
+if command -v piper &>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} piper found"
+else
+    if [ "${PIPER_AUR:-false}" = true ]; then
+        # Arch — piper-tts-bin in AUR
+        if command -v yay &>/dev/null; then
+            echo -e "  ${YELLOW}  → Installing piper-tts-bin via yay (AUR)...${NC}"
+            yay -S --noconfirm piper-tts-bin 2>&1 | tail -1
+        elif command -v paru &>/dev/null; then
+            echo -e "  ${YELLOW}  → Installing piper-tts-bin via paru (AUR)...${NC}"
+            paru -S --noconfirm piper-tts-bin 2>&1 | tail -1
+        else
+            echo -e "  ${YELLOW}  ⚠ piper not installed. Install from AUR:${NC}"
+            echo -e "  ${YELLOW}     yay -S piper-tts-bin${NC}"
+            echo -e "  ${YELLOW}     or: paru -S piper-tts-bin${NC}"
+            echo -e "  ${YELLOW}     or download from: https://github.com/rhasspy/piper/releases${NC}"
+        fi
+    elif [ "$PACKAGE_MANAGER" = "apt-get" ]; then
+        # Ubuntu/Debian — piper-tts may not be in apt; try, then fall back to static binary
+        echo -e "  ${YELLOW}  → Trying apt package piper-tts...${NC}"
+        if apt-cache show piper-tts &>/dev/null 2>&1; then
+            $PKG_INSTALL piper-tts 2>&1 | tail -1
+        else
+            echo -e "  ${YELLOW}  → piper-tts not in apt. Downloading static binary...${NC}"
+            PIPER_VERSION="2023.11.14-2"
+            PIPER_URL="https://github.com/rhasspy/piper/releases/download/v${PIPER_VERSION}/piper_linux_x86_64.tar.gz"
+            PIPER_TMP="/tmp/piper-tts"
+            mkdir -p "$PIPER_TMP"
+            wget -q --show-progress "$PIPER_URL" -O "$PIPER_TMP/piper.tar.gz" 2>&1 || {
+                echo -e "  ${RED}  ✗ Failed to download Piper static binary.${NC}"
+                echo -e "  ${YELLOW}    Install manually: https://github.com/rhasspy/piper/releases${NC}"
+            }
+            if [ -f "$PIPER_TMP/piper.tar.gz" ]; then
+                tar -xzf "$PIPER_TMP/piper.tar.gz" -C "$PIPER_TMP" 2>&1 | tail -1
+                sudo cp "$PIPER_TMP/piper/piper" /usr/local/bin/piper 2>/dev/null || {
+                    # Fallback: install to user local
+                    mkdir -p "$HOME/.local/bin"
+                    cp "$PIPER_TMP/piper/piper" "$HOME/.local/bin/piper" 2>/dev/null || true
+                fi
+                rm -rf "$PIPER_TMP"
+                if command -v piper &>/dev/null; then
+                    echo -e "  ${GREEN}✓${NC} piper installed from static binary"
+                else
+                    echo -e "  ${YELLOW}  ⚠ piper binary copied — add ~/.local/bin to PATH${NC}"
+                fi
+            fi
+        fi
+    elif [ "$PACKAGE_MANAGER" = "dnf" ]; then
+        echo -e "  ${YELLOW}  → Installing piper-tts...${NC}"
+        $PKG_INSTALL piper-tts 2>&1 | tail -1 || {
+            echo -e "  ${YELLOW}  ⚠ piper-tts not found in dnf. Install manually from:${NC}"
+            echo -e "  ${YELLOW}     https://github.com/rhasspy/piper/releases${NC}"
+        }
+    fi
+fi
 
 # ── Step 3: Create config directories ─────────────────────────────────────────
 echo ""

@@ -594,11 +594,20 @@ def _handle_setup(args: argparse.Namespace) -> int:
            "arecord or parec found" if has_recording_tool else "Install arecord (alsa-utils) or parec (pulseaudio-utils)")
 
     if has_recording_tool:
-        try:
-            stt = STTModule(model_size="tiny")  # tiny is fastest for setup test
-        except Exception as e:
-            stt = None
-            record("STT module init", False, str(e))
+        print("  → Loading speech recognition model (first-time download is ~1.5GB)...")
+        import concurrent.futures
+
+        stt = None
+        stt_init_future = None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            stt_init_future = executor.submit(STTModule, model_size="tiny")
+            try:
+                stt = stt_init_future.result(timeout=120)
+            except concurrent.futures.TimeoutError:
+                record("STT module init", False,
+                       "Timed out downloading model (>120s). Check your internet connection.")
+            except Exception as e:
+                record("STT module init", False, str(e))
 
         if stt is not None:
             record("STT module initialized", True)

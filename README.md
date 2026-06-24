@@ -87,13 +87,13 @@ ollama run qwen2.5-coder:3b
 
 ```bash
 # Interactive text mode
-python -m core.ai_core
+billiam
 
 # With British butler voice
-python -m core.ai_core --voice
+billiam --voice
 
 # Full daemon (voice + listening + auto-start)
-python -m core.ai_core --daemon
+billiam --daemon
 ```
 
 ### 4. Try It

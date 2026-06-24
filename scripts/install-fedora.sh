@@ -21,6 +21,13 @@ if ! command -v dnf &>/dev/null; then
     exit 1
 fi
 
+echo "==> Installing build dependencies (needed by faster-whisper)..."
+sudo dnf install -y \
+    gcc-c++ \
+    cmake \
+    cython
+
+echo ""
 echo "==> Installing Billiam OS system dependencies..."
 sudo dnf install -y \
     espeak-ng \
@@ -28,6 +35,18 @@ sudo dnf install -y \
     alsa-utils \
     python3-pip \
     pciutils
+
+echo ""
+echo "==> Installing Piper TTS (offline neural TTS)..."
+if command -v piper &>/dev/null; then
+    echo "  ✓ piper already installed"
+else
+    echo "  → Installing piper-tts..."
+    sudo dnf install -y piper-tts 2>/dev/null || {
+        echo "  ⚠ piper-tts not found in dnf repositories."
+        echo "    Install manually from: https://github.com/rhasspy/piper/releases"
+    }
+fi
 
 echo ""
 echo "==> Verifying installation..."

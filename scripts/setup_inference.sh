@@ -15,17 +15,62 @@ echo " Billiam OS — Inference Engine Setup"
 echo " Compiling llama.cpp with OpenVINO acceleration"
 echo "================================================"
 
+# ── Distro Detection ────────────────────────────────────
+detect_package_manager() {
+    if command -v pacman &>/dev/null; then
+        echo "pacman"
+    elif command -v apt-get &>/dev/null; then
+        echo "apt-get"
+    elif command -v dnf &>/dev/null; then
+        echo "dnf"
+    else
+        echo "unsupported"
+    fi
+}
+
+PACKAGE_MANAGER="$(detect_package_manager)"
+
+case "$PACKAGE_MANAGER" in
+    pacman)
+        PKG_INSTALL="sudo pacman -S --needed --noconfirm"
+        DEPS=(base-devel cmake git python-pip openvino opencl-intel)
+        ;;
+    apt-get)
+        PKG_INSTALL="sudo apt-get install -y"
+        DEPS=(build-essential cmake git python3-pip openvino)
+        echo ""
+        echo "  ⚠ Note: OpenVINO may not be in apt. If installation fails,"
+        echo "    install from: https://github.com/openvinotoolkit/openvino"
+        echo ""
+        ;;
+    dnf)
+        PKG_INSTALL="sudo dnf install -y"
+        DEPS=(gcc-c++ cmake git python3-pip openvino)
+        echo ""
+        echo "  ⚠ Note: OpenVINO may require RPM Fusion. If installation fails,"
+        echo "    see: https://github.com/openvinotoolkit/openvino"
+        echo ""
+        ;;
+    unsupported)
+        echo ""
+        echo "⚠ Unsupported distribution."
+        echo ""
+        echo "  Please manually install the following dependencies, then re-run this script:"
+        echo "    - git, cmake, gcc/g++, python3-pip"
+        echo "    - Intel OpenVINO (see: https://github.com/openvinotoolkit/openvino)"
+        echo "    - Intel OpenCL runtime (for GPU acceleration)"
+        echo ""
+        echo "  OpenVINO is optional — llama.cpp will compile without it (CPU-only fallback)."
+        echo ""
+        ;;
+esac
+
 # ── Step 1: System Dependencies ──────────────────────────
 echo ""
 echo "==> Step 1/5: Installing system dependencies..."
-sudo pacman -S --needed --noconfirm \
-    base-devel \
-    cmake \
-    git \
-    python-pip \
-    openvino \
-    opencl-intel \
-    2>&1 | tail -3
+if [ "$PACKAGE_MANAGER" != "unsupported" ]; then
+    $PKG_INSTALL "${DEPS[@]}" 2>&1 | tail -3
+fi
 
 # ── Step 2: Clone llama.cpp ──────────────────────────────
 echo ""
@@ -95,5 +140,6 @@ echo "     --host 0.0.0.0 --port 8080 \\"
 echo "     -ngl 0 -c 4096"
 echo ""
 echo " Then run the assistant:"
-echo "   python -m core.ai_core"
+echo "   billiam --once \"What's my hostname?\""
+echo "   billiam --voice"
 echo "================================================"
