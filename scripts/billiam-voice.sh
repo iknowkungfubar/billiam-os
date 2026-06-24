@@ -48,10 +48,10 @@ import sys
 sys.path.insert(0, '.')
 from core.stt import STTModule
 stt = STTModule(model_size='base')
-text = stt.transcribe('$TMPFILE')
+text = stt.transcribe(sys.argv[1])
 if text:
     print(text)
-" 2>/dev/null)
+" "$TMPFILE" 2>/dev/null)
 
 if [ -z "$TRANSCRIPT" ]; then
     echo "No speech detected."

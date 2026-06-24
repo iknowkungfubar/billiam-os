@@ -80,12 +80,14 @@ if [ ! -d "${LLAMA_DIR}" ]; then
     git clone --depth 1 https://github.com/ggml-org/llama.cpp.git "${LLAMA_DIR}"
 else
     echo "    llama.cpp directory already exists, updating..."
-    cd "${LLAMA_DIR}" && git pull && cd ..
+    (cd "${LLAMA_DIR}" && git pull)
 fi
 
 # ── Step 3: Build with OpenVINO ───────────────────────────
 echo ""
 echo "==> Step 3/5: Configuring build with OpenVINO..."
+
+(
 cd "${LLAMA_DIR}"
 
 cmake -B build \
@@ -97,8 +99,7 @@ cmake -B build \
 echo ""
 echo "==> Step 4/5: Compiling (this may take a while)..."
 cmake --build build --config Release -j"$(nproc)" 2>&1 | tail -5
-
-cd ..
+)
 
 # ── Step 4: Create model directory ────────────────────────
 echo ""

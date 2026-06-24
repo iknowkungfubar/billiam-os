@@ -1,6 +1,9 @@
-# Billiam OS — .gitignore
+# Git
+.git/
+.gitignore
+.gitattributes
 
-# Python
+# Python build artifacts
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -10,8 +13,6 @@ build/
 *.egg
 .venv/
 .venv*/
-*.manifest
-*.spec
 
 # Type checking
 .mypy_cache/
@@ -22,50 +23,36 @@ build/
 # Environment
 .env
 .envrc
-*.env
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# pytest
+# Test and coverage
 .pytest_cache/
 .coverage
 .coverage.*
 coverage.xml
 htmlcov/
-*.coverage
 
 # Ruff
 .ruff_cache/
 
-# pip-audit
-pip-audit-cache/
-
 # OS artifacts
 .DS_Store
 Thumbs.db
-Desktop.ini
-._*
-.Spotlight-V100
-.Trashes
 
-# Backup and merge files
+# Backup files
 *.orig
 *.bak
 *.old
-*.BACKUP.*
-*.BASE.*
-*.LOCAL.*
-*.REMOTE.*
+*~
 
-# Project-specific
+# Project-specific (large, downloaded at runtime)
 models/*.gguf
 llama.cpp/
 tmp/
 *.tmp
 loop-state.json
 *.log
+

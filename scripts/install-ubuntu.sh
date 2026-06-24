@@ -52,7 +52,8 @@ else
     echo "  → piper-tts not in apt. Downloading static binary..."
     PIPER_VERSION="2023.11.14-2"
     PIPER_URL="https://github.com/rhasspy/piper/releases/download/v${PIPER_VERSION}/piper_linux_x86_64.tar.gz"
-    PIPER_TMP="/tmp/piper-tts"
+    PIPER_TMP=$(mktemp -d /tmp/piper-tts-XXXXXXXX)
+    trap 'rm -rf "$PIPER_TMP"' EXIT INT TERM
     mkdir -p "$PIPER_TMP"
     wget -q --show-progress "$PIPER_URL" -O "$PIPER_TMP/piper.tar.gz" || {
         echo "  ⚠ Failed to download Piper static binary."
