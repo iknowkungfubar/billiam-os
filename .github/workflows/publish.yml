@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318eceed0b86275b7fdc3923c6c # v5.4.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
