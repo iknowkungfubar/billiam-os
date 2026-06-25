@@ -180,7 +180,6 @@ def _handle_check(args: argparse.Namespace) -> int:
         Exit code (0 = all good).
     """
     import shutil
-    import socket
     import sys
 
     from .config import load_config
@@ -513,9 +512,7 @@ def _handle_setup(args: argparse.Namespace) -> int:
         Exit code (0 = all good).
     """
     import shutil
-    import sys
     import tempfile
-    import time
 
     from .config import DEFAULT_CONFIG, save_config
     from .stt import STTModule
@@ -627,6 +624,7 @@ def _handle_setup(args: argparse.Namespace) -> int:
                 print("  → Recording 2 seconds of audio for STT test...")
                 print("  → (Speak a short phrase now)")
                 try:
+                    import subprocess
                     subprocess.run(recorder, capture_output=True, timeout=5)
                     # Transcribe
                     text = stt.transcribe(tmp_wav)
