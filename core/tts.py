@@ -125,6 +125,7 @@ class TTSModule:
         """Check if edge-tts Python package is available."""
         try:
             import edge_tts  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -135,7 +136,9 @@ class TTSModule:
         try:
             subprocess.run(
                 ["espeak-ng", "--version"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -147,7 +150,9 @@ class TTSModule:
         try:
             subprocess.run(
                 ["piper", "--help"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -178,12 +183,15 @@ class TTSModule:
         try:
             from tqdm import tqdm
 
-            with tqdm(unit="B", unit_scale=True, unit_divisor=1024,
-                      miniters=1, desc="Downloading") as pbar:
+            with tqdm(
+                unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc="Downloading"
+            ) as pbar:
+
                 def reporthook(block_num: int, block_size: int, total_size: int) -> None:
                     if total_size > 0:
                         pbar.total = total_size
                     pbar.update(block_size)
+
                 urllib.request.urlretrieve(url, path, reporthook=reporthook)
         except ImportError:
             urllib.request.urlretrieve(url, path)
@@ -248,13 +256,19 @@ class TTSModule:
         # Try ffplay (from ffmpeg)
         if self.device:
             players.append(
-                ["ffplay", "-nodisp", "-autoexit", "-v", "0",
-                 "-audio_device", self.device, audio_file]
+                [
+                    "ffplay",
+                    "-nodisp",
+                    "-autoexit",
+                    "-v",
+                    "0",
+                    "-audio_device",
+                    self.device,
+                    audio_file,
+                ]
             )
         else:
-            players.append(
-                ["ffplay", "-nodisp", "-autoexit", "-v", "0", audio_file]
-            )
+            players.append(["ffplay", "-nodisp", "-autoexit", "-v", "0", audio_file])
 
         # Try PipeWire (pw-play is the newer PipeWire client)
         players.append(["pw-play", audio_file])
@@ -265,9 +279,7 @@ class TTSModule:
 
         for cmd in players:
             try:
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=30
-                )
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 if result.returncode == 0:
                     return True
             except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -290,13 +302,9 @@ class TTSModule:
         try:
             import edge_tts
 
-            communicate = edge_tts.Communicate(
-                text, self.voice, rate=self.rate, pitch=self.pitch
-            )
+            communicate = edge_tts.Communicate(text, self.voice, rate=self.rate, pitch=self.pitch)
 
-            with tempfile.NamedTemporaryFile(
-                suffix=".mp3", delete=False
-            ) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                 tmp_path = tmp.name
 
             async def _run_tts():
@@ -386,13 +394,17 @@ class TTSModule:
             try:
                 cmd = ["espeak-ng", "-v", voice, "-s", "150", "-p", "50", text]
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=30,
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 if result.returncode == 0:
                     return True
                 logger.debug(
                     "espeak-ng voice '%s' failed: %s",
-                    voice, result.stderr.strip()[:80],
+                    voice,
+                    result.stderr.strip()[:80],
                 )
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 logger.debug("espeak-ng voice '%s' unavailable", voice)
@@ -458,9 +470,7 @@ class TTSModule:
         Returns:
             The background thread object.
         """
-        thread = threading.Thread(
-            target=self.speak, args=(text, force_offline), daemon=True
-        )
+        thread = threading.Thread(target=self.speak, args=(text, force_offline), daemon=True)
         thread.start()
         return thread
 
@@ -483,7 +493,4 @@ class TTSModule:
         return backends
 
     def __repr__(self) -> str:
-        return (
-            f"<TTSModule voice={self.voice} "
-            f"backends={self.backends}>"
-        )
+        return f"<TTSModule voice={self.voice} backends={self.backends}>"

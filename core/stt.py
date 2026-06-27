@@ -72,7 +72,10 @@ class STTModule:
 
         logger.info(
             "STTModule initialized (model=%s, lang=%s, device=%s, vad=%s)",
-            model_size, language, device, self._vad_available,
+            model_size,
+            language,
+            device,
+            self._vad_available,
         )
 
     def _get_model(self):
@@ -80,6 +83,7 @@ class STTModule:
         if self._model is None:
             try:
                 from faster_whisper import WhisperModel
+
                 self._model = WhisperModel(
                     self.model_size,
                     device=self.device,
@@ -87,10 +91,7 @@ class STTModule:
                 )
                 logger.info("Whisper model loaded: %s", self.model_size)
             except ImportError:
-                logger.error(
-                    "faster-whisper not installed. "
-                    "Run: pip install faster-whisper"
-                )
+                logger.error("faster-whisper not installed. Run: pip install faster-whisper")
                 raise
             except Exception as e:
                 logger.error("Failed to load whisper model: %s", e)
@@ -102,6 +103,7 @@ class STTModule:
         """Check if webrtcvad is available for voice activity detection."""
         try:
             import webrtcvad  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -119,9 +121,7 @@ class STTModule:
         # Check if either arecord or parec is installed
         for tool in ["arecord", "parec"]:
             try:
-                subprocess.run(
-                    ["which", tool], capture_output=True, timeout=2
-                )
+                subprocess.run(["which", tool], capture_output=True, timeout=2)
                 self._checked_hardware = True
                 break
             except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -146,9 +146,7 @@ class STTModule:
                 "No audio capture backend available. "
                 "Install arecord (alsa-utils) or parec (pipewire)"
             )
-        tmp_file = tempfile.NamedTemporaryFile(
-            suffix=".wav", delete=False
-        )
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         tmp_path = tmp_file.name
         tmp_file.close()
 
@@ -156,17 +154,24 @@ class STTModule:
         capture_cmds = [
             [
                 "parec",
-                "--rate", str(SAMPLE_RATE),
-                "--channels", str(CHANNELS),
-                "--format", "s16le",
+                "--rate",
+                str(SAMPLE_RATE),
+                "--channels",
+                str(CHANNELS),
+                "--format",
+                "s16le",
                 tmp_path.replace(".wav", ".raw"),
             ],
             [
                 "arecord",
-                "-r", str(SAMPLE_RATE),
-                "-c", str(CHANNELS),
-                "-f", "S16_LE",
-                "-d", str(int(duration)),
+                "-r",
+                str(SAMPLE_RATE),
+                "-c",
+                str(CHANNELS),
+                "-f",
+                "S16_LE",
+                "-d",
+                str(int(duration)),
                 tmp_path,
             ],
         ]
@@ -192,6 +197,7 @@ class STTModule:
                         if file_size > 1000:  # At least 1KB of audio
                             # Convert raw PCM to WAV using the wave module
                             import wave
+
                             with wave.open(tmp_path, "wb") as wav:
                                 wav.setnchannels(CHANNELS)
                                 wav.setsampwidth(2)  # 16-bit = 2 bytes
@@ -205,7 +211,9 @@ class STTModule:
 
                 logger.debug("Recording %ss audio via %s...", duration, cmd_template[0])
                 result = subprocess.run(
-                    cmd_template, capture_output=True, text=True,
+                    cmd_template,
+                    capture_output=True,
+                    text=True,
                     timeout=duration + 5,
                 )
                 if result.returncode == 0 and os.path.exists(tmp_path):
@@ -228,8 +236,7 @@ class STTModule:
 
         # If we got here, all capture methods failed
         raise RuntimeError(
-            "No audio capture backend available. "
-            "Install arecord (alsa-utils) or parec (pipewire)"
+            "No audio capture backend available. Install arecord (alsa-utils) or parec (pipewire)"
         )
 
     def transcribe(self, audio_file: str) -> str:
@@ -258,7 +265,9 @@ class STTModule:
             text = text.strip()
             logger.info(
                 "Transcribed %s (lang=%s, prob=%.2f): %s",
-                audio_file, info.language, info.language_probability,
+                audio_file,
+                info.language,
+                info.language_probability,
                 text[:80],
             )
             return text
@@ -325,12 +334,12 @@ class STTModule:
         for wake_word in self.wake_words:
             if text_lower.startswith(wake_word):
                 # Remove the wake word and any following punctuation/space
-                after = text[len(wake_word):].strip().lstrip(",.!?:; ")
+                after = text[len(wake_word) :].strip().lstrip(",.!?:; ")
                 return after
             # Also check if wake word appears anywhere
             idx = text_lower.find(wake_word)
             if idx >= 0:
-                after = text[idx + len(wake_word):].strip().lstrip(",.!?:; ")
+                after = text[idx + len(wake_word) :].strip().lstrip(",.!?:; ")
                 return after
         return text
 
@@ -352,7 +361,8 @@ class STTModule:
         self._listening = True
         logger.info(
             "Listening loop started (wake=%s, interval=%.1fs)",
-            wake_word_required, interval,
+            wake_word_required,
+            interval,
         )
 
         while self._listening:
@@ -395,7 +405,4 @@ class STTModule:
         return self._model is not None
 
     def __repr__(self) -> str:
-        return (
-            f"<STTModule model={self.model_size} "
-            f"lang={self.language} vad={self._vad_available}>"
-        )
+        return f"<STTModule model={self.model_size} lang={self.language} vad={self._vad_available}>"

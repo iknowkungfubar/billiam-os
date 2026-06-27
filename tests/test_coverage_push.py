@@ -39,6 +39,7 @@ class TestConfigEdgeCases:
             else:
                 del os.environ["BILLIAM_CONFIG"]
         import shutil
+
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def test_save_config_no_pyyaml(self):
@@ -112,12 +113,14 @@ class TestSTTCoverage:
     def test_stt_detect_wake_word_none_text(self):
         """detect_wake_word with None must return False."""
         from core.stt import STTModule
+
         stt = STTModule()
         assert stt.detect_wake_word(None) is False
 
     def test_stt_strip_wake_word_none(self):
         """strip_wake_word with None must return empty string."""
         from core.stt import STTModule
+
         stt = STTModule()
         assert stt.strip_wake_word(None) == ""
 
@@ -128,9 +131,8 @@ class TestSandboxErrorHandling:
     def test_nonexistent_command(self):
         """Non-existent command must return error gracefully."""
         from core.sandbox import SecureExecutionSandbox
+
         sandbox = SecureExecutionSandbox()
         # Use a command that resolves to nothing
-        rc, stdout, stderr = sandbox.execute_safely(
-            "this_command_does_not_exist_xyz123"
-        )
+        rc, stdout, stderr = sandbox.execute_safely("this_command_does_not_exist_xyz123")
         assert rc != 0 or "not found" in stderr.lower()

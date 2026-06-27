@@ -62,6 +62,7 @@ class TestConfigLoading:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_load_nonexistent_file(self):
