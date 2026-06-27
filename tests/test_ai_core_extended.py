@@ -21,6 +21,7 @@ class TestAICoreExtended:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_core_billiam_name(self):
@@ -70,9 +71,7 @@ class TestAICoreExtended:
     def test_parse_multiline_with_tool(self):
         """Parsing TOOL: from multiline output."""
         core = AICore(memory_path=self.memory_path)
-        result = core._parse_tool_call(
-            "Let me check that.\n\nTOOL: df -h\n\nHere is the result:"
-        )
+        result = core._parse_tool_call("Let me check that.\n\nTOOL: df -h\n\nHere is the result:")
         assert result == "df -h"
 
     def test_handle_tool_execution_uname(self):

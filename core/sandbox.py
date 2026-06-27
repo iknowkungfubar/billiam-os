@@ -20,23 +20,23 @@ import subprocess
 # If a command matches any of these, execution is denied immediately.
 BANNED_EXPRESSIONS = [
     # Filesystem destruction
-    r"rm\s+-(r|f|rf|fr)\s+/",            # rm -rf /
-    r"rm\s+-(r|f|rf|fr)\s+~\s*/*",       # rm -rf ~
-    r"rm\s+-(r|f|rf|fr)\s+/home",        # rm -rf /home
+    r"rm\s+-(r|f|rf|fr)\s+/",  # rm -rf /
+    r"rm\s+-(r|f|rf|fr)\s+~\s*/*",  # rm -rf ~
+    r"rm\s+-(r|f|rf|fr)\s+/home",  # rm -rf /home
     # Disk/partition operations
-    r"dd\s+if=",                           # dd if=/dev/zero of=/dev/sda
-    r"mkfs\.",                             # mkfs.ext4 /dev/sda
-    r"mkswap\s+/dev/",                     # mkswap on disk device
+    r"dd\s+if=",  # dd if=/dev/zero of=/dev/sda
+    r"mkfs\.",  # mkfs.ext4 /dev/sda
+    r"mkswap\s+/dev/",  # mkswap on disk device
     # Permission escalation
-    r"chown\s+.*\s+/\s*$",               # chown -R user:user /
-    r"chmod\s+777\s+/",                   # chmod 777 /
+    r"chown\s+.*\s+/\s*$",  # chown -R user:user /
+    r"chmod\s+777\s+/",  # chmod 777 /
     # Fork bombs
-    r":\(\)\s*\{\s*:\|:&\s*\};:",        # Classic bash fork bomb
-    r"fork\s*\(",                           # fork() in scripts
+    r":\(\)\s*\{\s*:\|:&\s*\};:",  # Classic bash fork bomb
+    r"fork\s*\(",  # fork() in scripts
     # Device-level destruction
-    r"nvme\s+format",                      # NVMe format
-    r"shred\s+",                           # Secure delete
-    r"wipefs\s+-[a]",                      # Wipe filesystem signatures
+    r"nvme\s+format",  # NVMe format
+    r"shred\s+",  # Secure delete
+    r"wipefs\s+-[a]",  # Wipe filesystem signatures
 ]
 
 # Commands that trigger Layer 3 human-in-the-loop confirmation
@@ -84,10 +84,20 @@ DANGEROUS_TARGETS = [
 ]
 
 SYSTEM_MODIFICATION_COMMANDS = [
-    "pacman", "apt", "dnf", "yum", "zypper",
-    "systemctl", "service",
-    "passwd", "useradd", "usermod", "groupadd",
-    "modprobe", "insmod", "rmmod",
+    "pacman",
+    "apt",
+    "dnf",
+    "yum",
+    "zypper",
+    "systemctl",
+    "service",
+    "passwd",
+    "useradd",
+    "usermod",
+    "groupadd",
+    "modprobe",
+    "insmod",
+    "rmmod",
 ]
 
 
@@ -125,20 +135,28 @@ class IntentClassification:
 
         # 1. Dangerous keywords
         for keyword, weight in DANGEROUS_KEYWORDS.items():
-            checks.append((weight, lambda kw=keyword: kw in command_lower,
-                          f"contains dangerous keyword '{keyword}'"))
+            checks.append(
+                (
+                    weight,
+                    lambda kw=keyword: kw in command_lower,
+                    f"contains dangerous keyword '{keyword}'",
+                )
+            )
 
         # 2. Dangerous targets (only for non-read operations)
         if not is_read_only:
             for target in DANGEROUS_TARGETS:
-                checks.append((0.5, lambda t=target: t in command_lower,
-                              f"targets system path '{target}'"))
+                checks.append(
+                    (0.5, lambda t=target: t in command_lower, f"targets system path '{target}'")
+                )
 
         # 3. Destructive flag combinations
         has_rm_rf = "rm" in command_lower and ("-rf" in command_lower or "-fr" in command_lower)
         has_rm_sep = "rm" in command_lower and "-r" in command_lower and "-f" in command_lower
-        has_rm_root = bool(re.search(r"rm\s+-rf\s+/\s", command_lower) or
-                          re.search(r"rm\s+-fr\s+/\s", command_lower))
+        has_rm_root = bool(
+            re.search(r"rm\s+-rf\s+/\s", command_lower)
+            or re.search(r"rm\s+-fr\s+/\s", command_lower)
+        )
         has_dd_disk = "dd" in command_lower and "of=" in command_lower
         has_chmod_777 = "chmod" in command_lower and "777" in command_lower and "/" in command_lower
 
@@ -151,21 +169,34 @@ class IntentClassification:
         # 4. System modification commands (not read-only)
         if not is_read_only:
             for cmd in SYSTEM_MODIFICATION_COMMANDS:
+
                 def _make_matcher(c):
                     return lambda: bool(re.search(rf"\b{re.escape(c)}\b", command_lower))
-                checks.append((0.3, _make_matcher(cmd),
-                              f"system modification command '{cmd}'"))
+
+                checks.append((0.3, _make_matcher(cmd), f"system modification command '{cmd}'"))
 
         # 5. Password operations (even read-only)
-        checks.append((0.2, lambda: "passwd" in command_lower and any(
-            w in command_lower for w in ["write", "change", "add", "mod", "-e"]),
-                      "password write operation detected"))
+        checks.append(
+            (
+                0.2,
+                lambda: (
+                    "passwd" in command_lower
+                    and any(w in command_lower for w in ["write", "change", "add", "mod", "-e"])
+                ),
+                "password write operation detected",
+            )
+        )
 
         # 6. Shell injection characters at start of command
         injection_chars = [";", "&&", "||", "`", "$("]
         for char in injection_chars:
-            checks.append((0.4, lambda c=char: command.strip().startswith(c),
-                          f"starts with injection char '{char}'"))
+            checks.append(
+                (
+                    0.4,
+                    lambda c=char: command.strip().startswith(c),
+                    f"starts with injection char '{char}'",
+                )
+            )
 
         # Apply all checks
         for weight, matcher, reason in checks:
@@ -247,9 +278,7 @@ class SecureExecutionSandbox:
                 f"(score={score:.2f}). {reason}"
             )
 
-    def execute_safely(
-        self, command: str, timeout: int = 20
-    ) -> tuple[int, str, str]:
+    def execute_safely(self, command: str, timeout: int = 20) -> tuple[int, str, str]:
         """Execute a shell instruction through the sandbox.
 
         Args:

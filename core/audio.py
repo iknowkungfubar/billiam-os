@@ -166,10 +166,7 @@ class AudioDaemon:
         return self._running
 
     def __repr__(self) -> str:
-        return (
-            f"<AudioDaemon running={self._running} "
-            f"wake={self.wake_word_required}>"
-        )
+        return f"<AudioDaemon running={self._running} wake={self.wake_word_required}>"
 
     def __enter__(self):
         self.start()

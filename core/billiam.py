@@ -91,6 +91,7 @@ CATCHPHRASES = {
 def get_greeting() -> str:
     """Return a random greeting from Billiam."""
     import random
+
     return random.choice(CATCHPHRASES["welcome"])
 
 
@@ -104,6 +105,7 @@ def get_catchphrase(category: str) -> str:
         A random catchphrase string.
     """
     import random
+
     phrases = CATCHPHRASES.get(category, [category])
     return random.choice(phrases)
 

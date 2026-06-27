@@ -49,9 +49,7 @@ class TestIntentClassification:
 
     def test_dangerous_command_high_score(self):
         """Dangerous commands must have score >= 0.7."""
-        cls, score, reason = IntentClassification.classify(
-            "rm -rf /boot"
-        )
+        cls, score, reason = IntentClassification.classify("rm -rf /boot")
         assert score >= 0.7
 
     def test_layer2_blocks_dangerous(self):

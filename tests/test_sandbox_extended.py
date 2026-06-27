@@ -5,7 +5,6 @@ Billiam OS — Extended Sandbox Tests
 Covers error handling paths and edge cases.
 """
 
-
 import pytest
 
 from core.sandbox import (
@@ -24,9 +23,7 @@ class TestSandboxEdgeCases:
 
     def test_custom_banned_patterns(self):
         """Custom banned patterns must be usable."""
-        sandbox = SecureExecutionSandbox(
-            banned_expressions=[r"dangerous_pattern"]
-        )
+        sandbox = SecureExecutionSandbox(banned_expressions=[r"dangerous_pattern"])
         assert sandbox.check_string_safety("dangerous_pattern") is False
         assert sandbox.check_string_safety("echo hello") is True
 
@@ -38,17 +35,13 @@ class TestSandboxEdgeCases:
 
     def test_command_with_special_chars(self):
         """Commands with special characters must work."""
-        rc, stdout, stderr = self.sandbox.execute_safely(
-            """echo "hello $HOME 'test' $(pwd)" """
-        )
+        rc, stdout, stderr = self.sandbox.execute_safely("""echo "hello $HOME 'test' $(pwd)" """)
         assert rc == 0
         assert stdout.strip() != ""
 
     def test_multiple_commands(self):
         """Multiple chained commands must work."""
-        rc, stdout, stderr = self.sandbox.execute_safely(
-            "echo first && echo second && echo third"
-        )
+        rc, stdout, stderr = self.sandbox.execute_safely("echo first && echo second && echo third")
         assert rc == 0
         assert "first" in stdout
         assert "second" in stdout
@@ -56,9 +49,7 @@ class TestSandboxEdgeCases:
 
     def test_piped_commands(self):
         """Piped commands must work."""
-        rc, stdout, stderr = self.sandbox.execute_safely(
-            "echo 'line1\nline2\nline3' | wc -l"
-        )
+        rc, stdout, stderr = self.sandbox.execute_safely("echo 'line1\nline2\nline3' | wc -l")
         assert rc == 0
         assert stdout.strip() == "3"
 
@@ -89,14 +80,10 @@ class TestSandboxEdgeCases:
 
     def test_timeout_default_value(self):
         """Default timeout must be 20 seconds."""
-        rc, stdout, stderr = self.sandbox.execute_safely(
-            "echo test", timeout=20
-        )
+        rc, stdout, stderr = self.sandbox.execute_safely("echo test", timeout=20)
         assert rc == 0
 
     def test_timeout_custom_value(self):
         """Custom timeout must work."""
-        rc, stdout, stderr = self.sandbox.execute_safely(
-            "echo test", timeout=5
-        )
+        rc, stdout, stderr = self.sandbox.execute_safely("echo test", timeout=5)
         assert rc == 0

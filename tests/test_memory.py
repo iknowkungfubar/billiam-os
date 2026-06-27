@@ -30,6 +30,7 @@ class TestAssistantMemoryLayer:
     def teardown_method(self, method):
         """Clean up temporary files."""
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     # ── Initialization ────────────────────────────────────────────────────
