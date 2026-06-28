@@ -525,9 +525,10 @@ def _handle_setup(args: argparse.Namespace) -> int:
     from .stt import STTModule
     from .tts import TTSModule
 
-    CONFIG_PATH = os.path.expanduser("~/.config/billiam-os/config.yaml")
+    config_path = os.path.expanduser("~/.config/billiam-os/config.yaml")
 
     results: list[dict] = []
+    CONFIG_PATH = config_path  # noqa: N806 — alias kept for backward compat
 
     def record(name: str, ok: bool, detail: str = ""):
         results.append({"name": name, "ok": ok, "detail": detail})
