@@ -22,6 +22,8 @@ Architecture:
     - Hotkey integration with window manager
 """
 
+from __future__ import annotations
+
 import logging
 
 from openai import OpenAI
@@ -98,7 +100,7 @@ class AICore:
         # Initialize TTS/STT (lazy, only if enabled)
         self._tts = None
         self._stt = None
-        self._audio_daemon = None
+        self._audio_daemon: AudioDaemon | None = None  # noqa: F821
         if enable_tts or enable_stt:
             self._init_voice()
 
@@ -141,9 +143,13 @@ class AICore:
                 )
 
             if self.enable_tts or self.enable_stt:
-                self._audio_daemon = AudioDaemon(
+                self._audio_daemon = AudioDaemon(  # type: ignore[assignment, arg-type]
                     stt_model_size="base" if self.enable_stt else None,
-                    tts_voice=BILLIAM_PROFILE["voice"]["voice_id"] if self.enable_tts else None,
+                    tts_voice=(
+                        str(BILLIAM_PROFILE["voice"]["voice_id"])
+                        if self.enable_tts
+                        else None
+                    ),
                     wake_word_required=True,
                 )
 
