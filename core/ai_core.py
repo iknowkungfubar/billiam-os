@@ -378,6 +378,7 @@ class AICore:
                             voice_queue.put(text)
                     except Exception:
                         import time
+
                         time.sleep(0.5)
 
             threading.Thread(target=_voice_listener, daemon=True).start()

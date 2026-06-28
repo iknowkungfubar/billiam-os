@@ -52,7 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument(
-        "--voice", "--tts",
+        "--voice",
+        "--tts",
         action="store_true",
         help="Enable voice output (British butler TTS)",
     )
@@ -102,7 +103,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Config action (default: validate)",
     )
     config_parser.add_argument(
-        "--file", "-f",
+        "--file",
+        "-f",
         type=str,
         default=None,
         help="Path to config file to validate",
@@ -180,7 +182,6 @@ def _handle_check(args: argparse.Namespace) -> int:
         Exit code (0 = all good).
     """
     import shutil
-    import socket
     import sys
 
     from .config import load_config
@@ -286,6 +287,7 @@ def _handle_smoke_test(args: argparse.Namespace) -> int:
         from core.config import load_config  # noqa: F401
         from core.memory import AssistantMemoryLayer
         from core.sandbox import GuardrailError, IntentClassification, SecureExecutionSandbox
+
         check("All core modules import correctly", True)
     except ImportError as e:
         check("All core modules import correctly", False, str(e))
@@ -307,6 +309,7 @@ def _handle_smoke_test(args: argparse.Namespace) -> int:
         assert mem.get_user_name() == "Developer"
         check("Memory layer initializes", True)
         import shutil
+
         shutil.rmtree(tmp_dir, ignore_errors=True)
     except Exception as e:
         check("Memory layer initializes", False, str(e))
@@ -345,8 +348,9 @@ def _handle_smoke_test(args: argparse.Namespace) -> int:
     try:
         prompt = system_prompt_injection()
         check("Billiam persona in system prompt", "Billiam" in prompt and "Butler" in prompt)
-        check("Persona mentions butler and TOOL format",
-              "TOOL:" in prompt or "tool" in prompt.lower())
+        check(
+            "Persona mentions butler and TOOL format", "TOOL:" in prompt or "tool" in prompt.lower()
+        )
     except Exception as e:
         check("Billiam persona", False, str(e))
 
@@ -445,6 +449,7 @@ def _check_llm_port(port: int, name: str) -> tuple[bool, str]:
         (ok, detail) tuple.
     """
     import socket
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(2)
@@ -513,9 +518,7 @@ def _handle_setup(args: argparse.Namespace) -> int:
         Exit code (0 = all good).
     """
     import shutil
-    import sys
     import tempfile
-    import time
 
     from .config import DEFAULT_CONFIG, save_config
     from .stt import STTModule
@@ -590,8 +593,13 @@ def _handle_setup(args: argparse.Namespace) -> int:
     print("-" * 40)
 
     has_recording_tool = bool(shutil.which("arecord") or shutil.which("parec"))
-    record("Recording tool available", has_recording_tool,
-           "arecord or parec found" if has_recording_tool else "Install arecord (alsa-utils) or parec (pulseaudio-utils)")
+    record(
+        "Recording tool available",
+        has_recording_tool,
+        "arecord or parec found"
+        if has_recording_tool
+        else "Install arecord (alsa-utils) or parec (pulseaudio-utils)",
+    )
 
     if has_recording_tool:
         print("  → Loading speech recognition model (first-time download is ~1.5GB)...")
@@ -604,8 +612,11 @@ def _handle_setup(args: argparse.Namespace) -> int:
             try:
                 stt = stt_init_future.result(timeout=120)
             except concurrent.futures.TimeoutError:
-                record("STT module init", False,
-                       "Timed out downloading model (>120s). Check your internet connection.")
+                record(
+                    "STT module init",
+                    False,
+                    "Timed out downloading model (>120s). Check your internet connection.",
+                )
             except Exception as e:
                 record("STT module init", False, str(e))
 
@@ -616,12 +627,17 @@ def _handle_setup(args: argparse.Namespace) -> int:
             tmp_wav = os.path.join(tempfile.mkdtemp(), "setup_test.wav")
             recorder = None
             if shutil.which("arecord"):
-                recorder = ["arecord", "-r", "16000", "-c", "1", "-f", "S16_LE",
-                            "-d", "2", tmp_wav]
+                recorder = ["arecord", "-r", "16000", "-c", "1", "-f", "S16_LE", "-d", "2", tmp_wav]
             elif shutil.which("parec"):
-                recorder = ["parec", "--rate=16000", "--channels=1",
-                            "--format=s16le", "--record", "2",
-                            f"--file={tmp_wav}"]
+                recorder = [
+                    "parec",
+                    "--rate=16000",
+                    "--channels=1",
+                    "--format=s16le",
+                    "--record",
+                    "2",
+                    f"--file={tmp_wav}",
+                ]
 
             if recorder:
                 print("  → Recording 2 seconds of audio for STT test...")
@@ -631,16 +647,21 @@ def _handle_setup(args: argparse.Namespace) -> int:
                     # Transcribe
                     text = stt.transcribe(tmp_wav)
                     if text and text.strip():
-                        record("STT transcription test", True,
-                               f"Transcribed: '{text.strip()[:60]}'")
+                        record(
+                            "STT transcription test", True, f"Transcribed: '{text.strip()[:60]}'"
+                        )
                     else:
-                        record("STT transcription test", False,
-                               "No speech detected (try speaking louder)")
+                        record(
+                            "STT transcription test",
+                            False,
+                            "No speech detected (try speaking louder)",
+                        )
                 except Exception as e:
                     record("STT transcription test", False, str(e))
                 finally:
                     # Cleanup
                     import shutil as shu
+
                     shu.rmtree(os.path.dirname(tmp_wav), ignore_errors=True)
             else:
                 record("STT recording", False, "No audio capture tool found")
@@ -718,9 +739,11 @@ def main() -> int:
     if args.version:
         try:
             import importlib.metadata
+
             ver = importlib.metadata.version("billiam-os")
         except Exception:
             from . import __version__  # noqa: F811
+
             ver = __version__
         print(f"Billiam OS v{ver}")
         return 0

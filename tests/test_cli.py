@@ -77,6 +77,7 @@ class TestCLIParser:
     def test_main_once(self, mock_core):
         """main() with --once must call run_once."""
         from core.cli import main
+
         mock_core.return_value.run_once.return_value = "test response"
         sys.argv = ["billiam", "--once", "hello"]
         result = main()
@@ -87,6 +88,7 @@ class TestCLIParser:
     def test_main_version(self, mock_core):
         """main() with --version must print version and exit."""
         from core.cli import main
+
         sys.argv = ["billiam", "--version"]
         result = main()
         assert result == 0

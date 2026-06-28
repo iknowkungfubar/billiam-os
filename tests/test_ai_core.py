@@ -24,6 +24,7 @@ class TestAICoreInit:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_init_creates_memory(self):
@@ -49,6 +50,7 @@ class TestSystemPrompt:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_system_prompt_contains_user_name(self):
@@ -83,6 +85,7 @@ class TestToolParsing:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_parse_simple_tool_call(self):
@@ -92,23 +95,17 @@ class TestToolParsing:
 
     def test_parse_tool_call_with_output(self):
         """Parse TOOL: when there's surrounding text."""
-        result = self.core._parse_tool_call(
-            "I'll check that for you.\nTOOL: df -h\nLet me see..."
-        )
+        result = self.core._parse_tool_call("I'll check that for you.\nTOOL: df -h\nLet me see...")
         assert result == "df -h"
 
     def test_parse_no_tool_call(self):
         """No TOOL: prefix must return None."""
-        result = self.core._parse_tool_call(
-            "Hello! How can I help you today?"
-        )
+        result = self.core._parse_tool_call("Hello! How can I help you today?")
         assert result is None
 
     def test_parse_multiple_tool_calls(self):
         """Only the first TOOL: command must be returned."""
-        result = self.core._parse_tool_call(
-            "TOOL: echo first\nTOOL: echo second"
-        )
+        result = self.core._parse_tool_call("TOOL: echo first\nTOOL: echo second")
         assert result == "echo first"
 
     def test_parse_backtick_wrapped(self):
@@ -132,6 +129,7 @@ class TestProcessInput:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_llm_unreachable_returns_error(self):
@@ -150,13 +148,9 @@ class TestProcessInput:
 
     def test_memory_records_interaction(self):
         """Each process_input must record in memory."""
-        before = self.core.memory.to_dict()["session_metadata"][
-            "total_interactions"
-        ]
+        before = self.core.memory.to_dict()["session_metadata"]["total_interactions"]
         self.core.process_input("Hello")
-        after = self.core.memory.to_dict()["session_metadata"][
-            "total_interactions"
-        ]
+        after = self.core.memory.to_dict()["session_metadata"]["total_interactions"]
         assert after == before + 1
 
 
@@ -170,6 +164,7 @@ class TestHandleToolExecution:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_execute_safe_command(self):

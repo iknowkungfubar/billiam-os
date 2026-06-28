@@ -26,6 +26,7 @@ logger = logging.getLogger("billiam.config")
 _has_pydantic = False
 try:
     from pydantic import BaseModel, field_validator  # noqa: F401
+
     _has_pydantic = True
 except ImportError:
     BaseModel = object  # type: ignore[misc]
@@ -33,12 +34,14 @@ except ImportError:
 
 class LLMConfig(BaseModel if _has_pydantic else object):  # type: ignore[no-redef, misc]
     """LLM backend configuration with validation."""
+
     api_base: str = "http://localhost:8080/v1"
     model: str
     temperature: float = 0.2
     max_tokens: int = 512
 
     if _has_pydantic:
+
         @field_validator("temperature")
         @classmethod
         def check_temperature(cls, v: float) -> float:
@@ -73,6 +76,7 @@ def validate_config(data: dict) -> list[str]:
     except Exception as e:
         errors.append(str(e))
     return errors
+
 
 # Default configuration
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -164,6 +168,7 @@ def load_yaml_config(path: str) -> dict[str, Any]:
     """
     try:
         import yaml
+
         with open(path) as f:
             return yaml.safe_load(f) or {}
     except ImportError:
@@ -244,9 +249,7 @@ def load_config(path: str | None = None) -> dict[str, Any]:
     return config
 
 
-def get_config_value(
-    config: dict, key_path: str, default: Any = None
-) -> Any:
+def get_config_value(config: dict, key_path: str, default: Any = None) -> Any:
     """Get a configuration value by dot-separated key path.
 
     Args:
@@ -281,6 +284,7 @@ def save_config(config: dict[str, Any], path: str) -> bool:
     """
     try:
         import yaml
+
         os.makedirs(os.path.dirname(os.path.expanduser(path)), exist_ok=True)
         with open(os.path.expanduser(path), "w") as f:
             yaml.dump(config, f, default_flow_style=False, indent=2)

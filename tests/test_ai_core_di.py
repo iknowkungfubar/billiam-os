@@ -15,6 +15,7 @@ from core.ai_core import AICore
 
 class MockChoice:
     """Mock OpenAI chat completion choice."""
+
     def __init__(self, content: str):
         self.message = MagicMock()
         self.message.content = content
@@ -22,6 +23,7 @@ class MockChoice:
 
 class MockResponse:
     """Mock OpenAI chat completion response."""
+
     def __init__(self, content: str):
         self.choices = [MockChoice(content)]
 
@@ -61,6 +63,7 @@ class TestAICoreDI:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_init_with_injected_client(self):
@@ -107,10 +110,12 @@ class TestAICoreDI:
 
     def test_process_input_with_tool_call(self):
         """process_input with a TOOL: command must execute it and return synthesis."""
-        client = MockOpenAI(responses=[
-            "TOOL: echo 'test output'",
-            "Done, sir. The command returned: test output",
-        ])
+        client = MockOpenAI(
+            responses=[
+                "TOOL: echo 'test output'",
+                "Done, sir. The command returned: test output",
+            ]
+        )
         core = AICore(memory_path=self.memory_path, client=client)
         result = core.process_input("run this")
         assert client.call_count >= 2
@@ -118,10 +123,12 @@ class TestAICoreDI:
 
     def test_process_input_destructive_blocked(self):
         """Destructive commands must be blocked by guardrail."""
-        client = MockOpenAI(responses=[
-            "TOOL: rm -rf /",
-            "I apologise, sir, but that command was blocked.",
-        ])
+        client = MockOpenAI(
+            responses=[
+                "TOOL: rm -rf /",
+                "I apologise, sir, but that command was blocked.",
+            ]
+        )
         core = AICore(memory_path=self.memory_path, client=client)
         result = core.process_input("delete everything")
         assert "GUARDRAIL BLOCKED" in result or "apologise" in result.lower()
