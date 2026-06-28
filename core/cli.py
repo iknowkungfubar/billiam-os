@@ -10,6 +10,7 @@ import argparse
 import logging
 import os
 import signal
+import subprocess
 import sys
 
 from .ai_core import AICore
