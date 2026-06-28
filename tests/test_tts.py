@@ -105,6 +105,10 @@ class TestTTSModule:
             result = tts.download_piper_model()
             assert isinstance(result, bool)
 
+    @pytest.mark.skipif(
+        not TTSModule._check_espeak(),
+        reason="espeak-ng not installed",
+    )
     def test_speak_no_backends(self):
         """speak must work via espeak-ng fallback when edge/piper are disabled."""
         tts = TTSModule(use_edge=False, use_piper=False)
