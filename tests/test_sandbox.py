@@ -24,6 +24,7 @@ class TestBannedExpressions:
         """Every banned expression must be valid regex."""
         for expr in BANNED_EXPRESSIONS:
             import re
+
             re.compile(expr)  # Would raise re.error if broken
 
     def test_all_patterns_blocked(self):
@@ -31,20 +32,19 @@ class TestBannedExpressions:
         sandbox = SecureExecutionSandbox()
         # Test with actual commands that would match each pattern
         test_commands = [
-            "rm -rf /etc",       # rm\s+-(r|f|rf|fr)\s+/
-            "rm -rf ~/",         # rm\s+-(r|f|rf|fr)\s+~\s*/
-            "rm -rf /home",      # rm\s+-(r|f|rf|fr)\s+/home
-            "dd if=/dev/zero of=/dev/sda",   # dd\s+if=
-            "mkfs.ext4 /dev/sda1",           # mkfs\.
-            "chmod 777 /",       # chmod\s+777\s+/
+            "rm -rf /etc",  # rm\s+-(r|f|rf|fr)\s+/
+            "rm -rf ~/",  # rm\s+-(r|f|rf|fr)\s+~\s*/
+            "rm -rf /home",  # rm\s+-(r|f|rf|fr)\s+/home
+            "dd if=/dev/zero of=/dev/sda",  # dd\s+if=
+            "mkfs.ext4 /dev/sda1",  # mkfs\.
+            "chmod 777 /",  # chmod\s+777\s+/
             "chown -R user:user /",  # chown.*\s+/
-            ":(){ :|:& };:",     # fork bomb
-            "nvme format",       # nvme\s+format
-            "shred /dev/sda",    # shred\s+
+            ":(){ :|:& };:",  # fork bomb
+            "nvme format",  # nvme\s+format
+            "shred /dev/sda",  # shred\s+
         ]
         for cmd in test_commands:
-            assert not sandbox.check_string_safety(cmd), \
-                f"Command should be blocked: {cmd}"
+            assert not sandbox.check_string_safety(cmd), f"Command should be blocked: {cmd}"
 
 
 class TestSecureExecutionSandbox:

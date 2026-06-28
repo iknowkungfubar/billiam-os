@@ -47,14 +47,17 @@ class TestIntegration:
 
     def setup_method(self, method):
         self.tmp_dir = tempfile.mkdtemp()
-        self.server.set_responses([
-            "Hello! I am Billiam, your personal digital butler.",
-        ])
+        self.server.set_responses(
+            [
+                "Hello! I am Billiam, your personal digital butler.",
+            ]
+        )
         # Reset call tracking for clean test isolation
         MockLLMServer._reset()
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_core_connects_to_server(self):
@@ -66,10 +69,12 @@ class TestIntegration:
 
     def test_tool_call_execution(self):
         """AICore must execute TOOL: commands via the guardrail."""
-        self.server.set_responses([
-            "TOOL: echo 'integration works'",
-            "The command returned: integration works",
-        ])
+        self.server.set_responses(
+            [
+                "TOOL: echo 'integration works'",
+                "The command returned: integration works",
+            ]
+        )
         core = _make_core(self.tmp_dir, self.server)
         result = core.process_input("run echo")
         # Should contain tool output and synthesis
@@ -79,10 +84,12 @@ class TestIntegration:
 
     def test_destructive_command_blocked(self):
         """AICore must block destructive commands through the guardrail."""
-        self.server.set_responses([
-            "TOOL: rm -rf /",
-            "I apologise, sir, but that was blocked.",
-        ])
+        self.server.set_responses(
+            [
+                "TOOL: rm -rf /",
+                "I apologise, sir, but that was blocked.",
+            ]
+        )
         core = _make_core(self.tmp_dir, self.server)
         result = core.process_input("delete everything")
         assert "GUARDRAIL BLOCKED" in result or "apologise" in result.lower()
@@ -135,12 +142,14 @@ class TestIntegration:
 
     def test_multiple_tool_calls(self):
         """Multiple tool calls in sequence must work."""
-        self.server.set_responses([
-            "TOOL: echo 'first command'",
-            "First result shows: first command",
-            "TOOL: echo 'second command'",
-            "Second result shows: second command",
-        ])
+        self.server.set_responses(
+            [
+                "TOOL: echo 'first command'",
+                "First result shows: first command",
+                "TOOL: echo 'second command'",
+                "Second result shows: second command",
+            ]
+        )
         core = _make_core(self.tmp_dir, self.server)
 
         result1 = core.process_input("run first")

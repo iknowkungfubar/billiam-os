@@ -27,6 +27,7 @@ class TestConfigSave:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_save_and_reload(self):
@@ -109,9 +110,7 @@ class TestConfigEnvOverride:
         """Invalid temperature env var must not crash."""
         self._set_env("BILLIAM_TEMPERATURE", "not-a-number")
         config = load_config()
-        assert config["llm"]["temperature"] == float(
-            DEFAULT_CONFIG["llm"]["temperature"]
-        )
+        assert config["llm"]["temperature"] == float(DEFAULT_CONFIG["llm"]["temperature"])
 
 
 class TestMergeConfigExtended:
@@ -146,6 +145,7 @@ class TestLoadYamlConfig:
 
     def teardown_method(self, method):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_load_empty_yaml(self):

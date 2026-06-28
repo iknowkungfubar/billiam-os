@@ -30,8 +30,7 @@ DEFAULT_MEMORY_SCHEMA: dict[str, Any] = {
         "name": "Billiam",
         "modality": "FOSS AI-OS Core — Your Personal Digital Butler",
         "personality": (
-            "Impeccably polite British butler. "
-            "Courteous, efficient, and safety-conscious."
+            "Impeccably polite British butler. Courteous, efficient, and safety-conscious."
         ),
     },
     "cached_system_facts": {},
@@ -132,9 +131,7 @@ class AssistantMemoryLayer:
         """Get the stored user name."""
         return self.memory["user_identity"]["name"]
 
-    def set_user_info(
-        self, name: str | None = None, role: str | None = None
-    ) -> None:
+    def set_user_info(self, name: str | None = None, role: str | None = None) -> None:
         """Update user identity information.
 
         Args:
@@ -169,9 +166,7 @@ class AssistantMemoryLayer:
         """
         return self.memory["cached_system_facts"].get(key, default)
 
-    def record_interaction(
-        self, user_input: str, assistant_output: str
-    ) -> None:
+    def record_interaction(self, user_input: str, assistant_output: str) -> None:
         """Record an interaction in the history tokens.
 
         Args:
@@ -188,9 +183,9 @@ class AssistantMemoryLayer:
 
         # Keep history bounded at 100 entries
         if len(self.memory["interaction_history_tokens"]) > 100:
-            self.memory["interaction_history_tokens"] = (
-                self.memory["interaction_history_tokens"][-100:]
-            )
+            self.memory["interaction_history_tokens"] = self.memory["interaction_history_tokens"][
+                -100:
+            ]
 
         self._save_to_disk()
 

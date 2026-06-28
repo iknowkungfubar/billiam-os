@@ -94,6 +94,7 @@ class TestTTSModule:
     def test_piper_cache_dir(self):
         """Cache directory must be under ~/.cache/billiam-os."""
         from core.tts import PIPER_CACHE_DIR
+
         assert ".cache/billiam-os" in PIPER_CACHE_DIR
 
     def test_download_piper_model_no_piper(self):
@@ -105,6 +106,6 @@ class TestTTSModule:
             assert isinstance(result, bool)
 
     def test_speak_no_backends(self):
-        '''speak must work via espeak-ng fallback when edge/piper are disabled.'''
+        """speak must work via espeak-ng fallback when edge/piper are disabled."""
         tts = TTSModule(use_edge=False, use_piper=False)
         assert tts.speak("test") is True
