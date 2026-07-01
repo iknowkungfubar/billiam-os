@@ -12,7 +12,7 @@ edge-tts>=7.0.0,<8.0.0       # Text-to-Speech (British voice, needs internet)
 faster-whisper>=1.0.0,<2.0.0 # Local Speech-to-Text (faster-whisper CTranslate2)
 
 # ── Testing ──────────────────────────────────────────────────────────────────
-pytest>=7.0.0,<9.0.0
+pytest>=9.1.1,<10.0.0
 pytest-cov>=7.1.0,<8.0.0
 
 # ── Development ──────────────────────────────────────────────────────────────
