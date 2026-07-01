@@ -16,7 +16,7 @@ long_description = "README.md"
 long_description_content_type = "text/markdown"
 
 dependencies = [
-    "openai>=1.0.0,<2.0.0",
+    "openai>=1.0.0,<3.0.0",
     "pyyaml>=6.0,<7.0",
     "requests>=2.28,<3.0",
 ]
