@@ -130,7 +130,7 @@ ignore = [
     "TCH001",   # pre-existing: typing import
     "TCH002",   # pre-existing: typing import
     "TCH003",   # pre-existing: typing import
-    "ASYNC101", # pre-existing: async open
+    # "ASYNC101", # removed in ruff 0.15.20
     "PERF401",  # pre-existing: loop append
 ]
 per-file-ignores = { "tests/*" = ["S101"] }
