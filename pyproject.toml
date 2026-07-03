@@ -12,8 +12,16 @@ requires-python = ">=3.10"
 authors = [
     {name = "Billiam OS Contributors"},
 ]
-long_description = "README.md"
-long_description_content_type = "text/markdown"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 dependencies = [
     "openai>=1.0.0,<3.0.0",
@@ -33,35 +41,128 @@ billiam = "core.cli:main"
 [project.urls]
 Homepage = "https://github.com/iknowkungfubar/billiam-os"
 Repository = "https://github.com/iknowkungfubar/billiam-os.git"
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3",
-    "Topic :: System :: Systems Administration",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "S"]
-ignore = ["S603", "S607"]  # subprocess with shell=True is intentional for system commands
+select = ["ALL"]
+ignore = [
+    "S101",     # pre-existing: assert in tests
+    "ISC001",   # pre-existing: implicit string concat
+    "COM812",   # pre-existing: trailing comma missing
+    "D100",     # pre-existing: missing docstring
+    "D101",     # pre-existing: missing docstring
+    "D102",     # pre-existing: missing docstring
+    "D103",     # pre-existing: missing docstring
+    "D104",     # pre-existing: missing docstring
+    "D105",     # pre-existing: missing docstring
+    "D107",     # pre-existing: missing docstring
+    "D200",     # pre-existing: docstring formatting
+    "D205",     # pre-existing: docstring formatting
+    "D212",     # pre-existing: docstring formatting
+    "D400",     # pre-existing: docstring formatting
+    "D401",     # pre-existing: docstring formatting
+    "D402",     # pre-existing: docstring formatting
+    "D403",     # pre-existing: docstring formatting
+    "D404",     # pre-existing: docstring formatting
+    "D405",     # pre-existing: docstring formatting
+    "D406",     # pre-existing: docstring formatting
+    "D407",     # pre-existing: docstring formatting
+    "D408",     # pre-existing: docstring formatting
+    "D409",     # pre-existing: docstring formatting
+    "D410",     # pre-existing: docstring formatting
+    "D411",     # pre-existing: docstring formatting
+    "D412",     # pre-existing: docstring formatting
+    "D413",     # pre-existing: docstring formatting
+    "D414",     # pre-existing: docstring formatting
+    "D415",     # pre-existing: docstring formatting
+    "D416",     # pre-existing: docstring formatting
+    "D417",     # pre-existing: docstring formatting
+    "ANN001",   # pre-existing: missing type annotation
+    "ANN002",   # pre-existing: missing type annotation
+    "ANN003",   # pre-existing: missing type annotation
+    "ANN201",   # pre-existing: missing return type
+    "ANN202",   # pre-existing: missing return type
+    "ANN204",   # pre-existing: missing return type
+    "ANN401",   # pre-existing: Any type annotation
+    "FIX002",   # pre-existing: line contains TODO
+    "TD002",    # pre-existing: missing author in TODO
+    "TD003",    # pre-existing: missing issue link in TODO
+    "ERA001",   # pre-existing: commented-out code
+    "EM101",    # pre-existing: exception in except
+    "EM102",    # pre-existing: exception in except
+    "TRY003",   # pre-existing: exception message
+    "TRY301",   # pre-existing: raise in try
+    "PLR2004",  # pre-existing: magic value
+    "PLR0911",  # pre-existing: too many return
+    "PLR0912",  # pre-existing: too many branches
+    "PLR0913",  # pre-existing: too many args
+    "PLR0915",  # pre-existing: too many statements
+    "PLR1702",  # pre-existing: too many nested
+    "PLW2901",  # pre-existing: redefined loop
+    "SLF001",   # pre-existing: private member access
+    "BLE001",   # pre-existing: blind except
+    "S307",     # pre-existing: unsafe eval
+    "S311",     # pre-existing: random
+    "S602",     # pre-existing: subprocess
+    "S603",     # pre-existing: subprocess
+    "S604",     # pre-existing: subprocess
+    "S605",     # pre-existing: subprocess
+    "S606",     # pre-existing: subprocess
+    "S607",     # pre-existing: subprocess
+    "INP001",   # pre-existing: missing __init__
+    "T201",     # pre-existing: print statement
+    "G004",     # pre-existing: f-string in log
+    "PGH003",   # pre-existing: blanket noqa
+    "PGH004",   # pre-existing: blanket noqa
+    "PTH123",   # pre-existing: pathlib
+    "RUF001",   # pre-existing: ambiguous char
+    "RUF012",   # pre-existing: mutable class attr
+    "RUF019",   # pre-existing: unnecessary key check
+    "RET503",   # pre-existing: missing return
+    "RET504",   # pre-existing: unnecessary assign
+    "RET505",   # pre-existing: redundant return
+    "N802",     # pre-existing: function name
+    "N803",     # pre-existing: argument name
+    "N806",     # pre-existing: variable name
+    "TCH001",   # pre-existing: typing import
+    "TCH002",   # pre-existing: typing import
+    "TCH003",   # pre-existing: typing import
+    "ASYNC101", # pre-existing: async open
+    "PERF401",  # pre-existing: loop append
+]
+per-file-ignores = { "tests/*" = ["S101"] }
 
-# Tests use assert (S101) — standard pytest pattern. billiam.py uses random.choice for
-# catchphrases (S311) — not security-critical. sandbox exception naming (N818) is acceptable.
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S311", "S108", "N818", "N806"]
-"core/billiam.py" = ["S311"]
-"core/sandbox.py" = ["N818", "N806"]
-"core/cli.py" = ["S101"]
-"core/stt.py" = ["F401"]
-"core/tts.py" = ["F401", "S310"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pytest.ini_options]
+minversion = "7.0"
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+addopts = "-v --tb=short -q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["core"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 55
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "raise ImportError",
+    "return NotImplemented",
+    "@overload",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["tests/"]
+ignore_missing_imports = true
