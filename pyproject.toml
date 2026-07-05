@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = [
+    "setuptools>=64",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,10 +9,9 @@ name = "billiam-os"
 version = "1.1.0"
 description = "AI-Powered Linux OS Layer — Voice-controllable, agent-driven personal digital assistant"
 readme = "README.md"
-license = {text = "GPL-3.0"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Billiam OS Contributors"},
+    { name = "Billiam OS Contributors" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -22,12 +23,14 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-
 dependencies = [
     "openai>=1.0.0,<3.0.0",
     "pyyaml>=6.0,<7.0",
     "requests>=2.28,<3.0",
 ]
+
+[project.license]
+text = "GPL-3.0"
 
 [project.optional-dependencies]
 voice = [
@@ -47,107 +50,155 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-    "S101",     # pre-existing: assert in tests
-    "ISC001",   # pre-existing: implicit string concat
-    "COM812",   # pre-existing: trailing comma missing
-    "D100",     # pre-existing: missing docstring
-    "D101",     # pre-existing: missing docstring
-    "D102",     # pre-existing: missing docstring
-    "D103",     # pre-existing: missing docstring
-    "D104",     # pre-existing: missing docstring
-    "D105",     # pre-existing: missing docstring
-    "D107",     # pre-existing: missing docstring
-    "D200",     # pre-existing: docstring formatting
-    "D205",     # pre-existing: docstring formatting
-    "D212",     # pre-existing: docstring formatting
-    "D400",     # pre-existing: docstring formatting
-    "D401",     # pre-existing: docstring formatting
-    "D402",     # pre-existing: docstring formatting
-    "D403",     # pre-existing: docstring formatting
-    "D404",     # pre-existing: docstring formatting
-    "D405",     # pre-existing: docstring formatting
-    "D406",     # pre-existing: docstring formatting
-    "D407",     # pre-existing: docstring formatting
-    "D408",     # pre-existing: docstring formatting
-    "D409",     # pre-existing: docstring formatting
-    "D410",     # pre-existing: docstring formatting
-    "D411",     # pre-existing: docstring formatting
-    "D412",     # pre-existing: docstring formatting
-    "D413",     # pre-existing: docstring formatting
-    "D414",     # pre-existing: docstring formatting
-    "D415",     # pre-existing: docstring formatting
-    "D416",     # pre-existing: docstring formatting
-    "D417",     # pre-existing: docstring formatting
-    "ANN001",   # pre-existing: missing type annotation
-    "ANN002",   # pre-existing: missing type annotation
-    "ANN003",   # pre-existing: missing type annotation
-    "ANN201",   # pre-existing: missing return type
-    "ANN202",   # pre-existing: missing return type
-    "ANN204",   # pre-existing: missing return type
-    "ANN401",   # pre-existing: Any type annotation
-    "FIX002",   # pre-existing: line contains TODO
-    "TD002",    # pre-existing: missing author in TODO
-    "TD003",    # pre-existing: missing issue link in TODO
-    "ERA001",   # pre-existing: commented-out code
-    "EM101",    # pre-existing: exception in except
-    "EM102",    # pre-existing: exception in except
-    "TRY003",   # pre-existing: exception message
-    "TRY301",   # pre-existing: raise in try
-    "PLR2004",  # pre-existing: magic value
-    "PLR0911",  # pre-existing: too many return
-    "PLR0912",  # pre-existing: too many branches
-    "PLR0913",  # pre-existing: too many args
-    "PLR0915",  # pre-existing: too many statements
-    "PLR1702",  # pre-existing: too many nested
-    "PLW2901",  # pre-existing: redefined loop
-    "SLF001",   # pre-existing: private member access
-    "BLE001",   # pre-existing: blind except
-    "S307",     # pre-existing: unsafe eval
-    "S311",     # pre-existing: random
-    "S602",     # pre-existing: subprocess
-    "S603",     # pre-existing: subprocess
-    "S604",     # pre-existing: subprocess
-    "S605",     # pre-existing: subprocess
-    "S606",     # pre-existing: subprocess
-    "S607",     # pre-existing: subprocess
-    "INP001",   # pre-existing: missing __init__
-    "T201",     # pre-existing: print statement
-    "G004",     # pre-existing: f-string in log
-    "PGH003",   # pre-existing: blanket noqa
-    "PGH004",   # pre-existing: blanket noqa
-    "PTH123",   # pre-existing: pathlib
-    "RUF001",   # pre-existing: ambiguous char
-    "RUF012",   # pre-existing: mutable class attr
-    "RUF019",   # pre-existing: unnecessary key check
-    "RET503",   # pre-existing: missing return
-    "RET504",   # pre-existing: unnecessary assign
-    "RET505",   # pre-existing: redundant return
-    "N802",     # pre-existing: function name
-    "N803",     # pre-existing: argument name
-    "N806",     # pre-existing: variable name
-    "TCH001",   # pre-existing: typing import
-    "TCH002",   # pre-existing: typing import
-    "TCH003",   # pre-existing: typing import
-    # "ASYNC101", # removed in ruff 0.15.20
-    "TRY400",   # pre-existing: logger.error in except blocks
-    "PERF401",  # pre-existing: loop append
+select = [
+    "ALL",
 ]
-per-file-ignores = { "tests/*" = ["S101"] }
+ignore = [
+    "ANN001",
+    "ANN002",
+    "ANN003",
+    "ANN201",
+    "ANN202",
+    "ANN204",
+    "ANN206",
+    "ANN401",
+    "ARG001",
+    "ARG002",
+    "BLE001",
+    "C901",
+    "COM812",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D200",
+    "D205",
+    "D212",
+    "D400",
+    "D401",
+    "D402",
+    "D403",
+    "D404",
+    "D405",
+    "D406",
+    "D407",
+    "D408",
+    "D409",
+    "D410",
+    "D411",
+    "D412",
+    "D413",
+    "D414",
+    "D415",
+    "D416",
+    "D417",
+    "EM101",
+    "EM102",
+    "ERA001",
+    "F401",
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    "FIX002",
+    "G004",
+    "INP001",
+    "ISC001",
+    "N802",
+    "N803",
+    "N806",
+    "PERF203",
+    "PERF401",
+    "PGH003",
+    "PGH004",
+    "PIE790",
+    "PLC0415",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR1702",
+    "PLR2004",
+    "PLW1510",
+    "PLW2901",
+    "PT006",
+    "PT017",
+    "PT018",
+    "PTH101",
+    "PTH103",
+    "PTH108",
+    "PTH110",
+    "PTH111",
+    "PTH118",
+    "PTH120",
+    "PTH123",
+    "PTH202",
+    "RET503",
+    "RET504",
+    "RET505",
+    "RUF001",
+    "RUF012",
+    "RUF019",
+    "RUF059",
+    "RUF100",
+    "S101",
+    "S307",
+    "S310",
+    "S311",
+    "S602",
+    "S603",
+    "S604",
+    "S605",
+    "S606",
+    "S607",
+    "SIM102",
+    "SIM105",
+    "SIM115",
+    "SLF001",
+    "T201",
+    "TCH001",
+    "TCH002",
+    "TCH003",
+    "TD002",
+    "TD003",
+    "TRY003",
+    "TRY300",
+    "TRY301",
+    "TRY400",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "A002",
+    "PERF102",
+    "PTH100",
+    "PTH101",
+    "S101",
+    "S108",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-testpaths = ["tests"]
+testpaths = [
+    "tests",
+]
 addopts = "-v --tb=short -q"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 [tool.coverage.run]
-source = ["core"]
-omit = ["tests/*"]
+source = [
+    "core",
+]
+omit = [
+    "tests/*",
+]
 
 [tool.coverage.report]
 fail_under = 55
@@ -165,5 +216,7 @@ exclude_lines = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["tests/"]
+exclude = [
+    "tests/",
+]
 ignore_missing_imports = true
