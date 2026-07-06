@@ -15,9 +15,51 @@ The memory schema stores:
 
 import copy
 import json
+import logging
 import os
 from datetime import datetime, timezone
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
+
+logger = logging.getLogger("billiam.memory")
+
+
+# ── Memory Backend Protocol ──
+
+
+class MemoryBackend(Protocol):
+    """Persistence layer for memory data."""
+
+    def load(self) -> dict[str, Any]: ...
+    def save(self, data: dict[str, Any]) -> None: ...
+
+
+class JSONMemoryStore:
+    """JSON file-backed memory store."""
+
+    def __init__(self, storage_path: str):
+        self.storage_path = os.path.expanduser(storage_path)
+
+    def load(self) -> dict[str, Any]:
+        path = Path(self.storage_path)
+        if path.exists():
+            try:
+                return json.loads(path.read_text())
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load memory: %s", e)
+                return {}
+        return {}
+
+    def save(self, data: dict[str, Any]) -> None:
+        path = Path(self.storage_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        try:
+            tmp.write_text(json.dumps(data, indent=2, default=str))
+            tmp.replace(path)
+        except OSError as e:
+            logger.error("Failed to save memory: %s", e)
+
 
 # Default memory schema used on first initialization
 DEFAULT_MEMORY_SCHEMA: dict[str, Any] = {
