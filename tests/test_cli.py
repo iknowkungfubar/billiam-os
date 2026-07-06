@@ -1,8 +1,9 @@
 """
 tests/test_cli.py
-Billiam OS — CLI Entry Point Tests
+Billiam OS -- CLI Entry Point Tests
 
 Tests the extracted CLI module (argparse parsing, main function).
+Regression tests for existing CLI behavior.
 """
 
 import sys
@@ -72,6 +73,92 @@ class TestCLIParser:
         assert args.api_base is None
         assert args.model is None
         assert args.version is False
+
+    # --- Subcommand parsing ---
+
+    def test_parse_subcommand_config(self):
+        """'config' subcommand must be parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["config"])
+        assert args.command == "config"
+
+    def test_parse_subcommand_smoke_test(self):
+        """'smoke-test' subcommand must be parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["smoke-test"])
+        assert args.command == "smoke-test"
+
+    def test_parse_subcommand_docs(self):
+        """'docs' subcommand must be parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["docs"])
+        assert args.command == "docs"
+
+    def test_parse_subcommand_check(self):
+        """'check' subcommand must be parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["check"])
+        assert args.command == "check"
+
+    def test_parse_subcommand_setup(self):
+        """'setup' subcommand must be parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["setup"])
+        assert args.command == "setup"
+
+    # --- _handle_docs ---
+
+    def test_handle_docs_returns_0(self):
+        """_handle_docs must return 0 (success)."""
+        from core.cli import _handle_docs
+        result = _handle_docs(None)
+        assert result == 0
+
+    # --- main() subcommand dispatch ---
+
+    @patch("core.cli.AICore")
+    @patch("core.cli.setup_logging")
+    def test_main_docs_subcommand(self, mock_logging, mock_core):
+        """main() with 'docs' must dispatch to _handle_docs and return 0."""
+        from core.cli import main
+
+        sys.argv = ["billiam", "docs"]
+        result = main()
+        assert result == 0
+        mock_core.assert_not_called()
+
+    @patch("core.cli.AICore")
+    @patch("core.cli.setup_logging")
+    @patch("core.tts.TTSModule")
+    @patch("core.cli.load_config")
+    @patch("core.cli._check_llm_port")
+    def test_main_check_subcommand(
+        self, mock_check_port, mock_load_config, mock_tts, mock_logging, mock_core
+    ):
+        """main() with 'check' must dispatch to _handle_check and return 0."""
+        mock_load_config.return_value = {"billiam": {"name": "Billiam"}, "llm": {}}
+        mock_tts_instance = mock_tts.return_value
+        mock_tts_instance._edge_available = True
+        mock_tts_instance._piper_available = True
+        mock_tts_instance._espeak_available = True
+        mock_tts_instance._piper_model_ready = True
+        mock_check_port.return_value = (True, "Found Ollama on port 11434")
+
+        from core.cli import main
+
+        sys.argv = ["billiam", "check"]
+        result = main()
+        assert result == 0
+        mock_core.assert_not_called()
+
+    # --- _check_llm_port ---
+
+    def test_check_llm_port_no_listener(self):
+        """_check_llm_port must return (False, ...) when nothing listens."""
+        from core.cli import _check_llm_port
+        ok, detail = _check_llm_port(19999, "test-backend")
+        assert ok is False
+        assert "test-backend" in detail or "detected" in detail
 
     @patch("core.cli.AICore")
     def test_main_once(self, mock_core):
