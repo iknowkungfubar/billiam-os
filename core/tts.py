@@ -8,21 +8,81 @@ Provides British butler voice output using multiple backends:
 3. espeak-ng (offline) — fully offline fallback, robotic but reliable
 
 All audio is played through the system's default audio output device.
+
+The module now uses a TTSBackend protocol with a registry pattern:
+backends register by priority, and TTSModule tries each in order.
 """
+from __future__ import annotations
 
 import asyncio
+import io
 import json
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
 import urllib.request
+import wave
 from pathlib import Path
+from typing import Any, Protocol
 
 logger = logging.getLogger("billiam.tts")
 
-# Default voices
+# Default configuration
+DEFAULT_VOICE = "en-GB-SoniaNeural"
+DEFAULT_PIPER_MODEL = "en_GB-southern_english_female-medium"
+BACKEND_PRIORITY = ["edge-tts", "piper", "espeak-ng"]
+
+
+# ── TTS Backend Protocol ──
+
+
+class TTSBackend(Protocol):
+    """Protocol for TTS backends. Each backend implements speak()."""
+
+    name: str
+    """Unique backend identifier (e.g. 'edge-tts', 'piper')."""
+
+    def is_available(self) -> bool:
+        """Check if this backend can be used."""
+        ...
+
+    def speak(self, text: str, audio_path: str | None = None) -> bool:
+        """Speak the given text. Returns True on success."""
+        ...
+
+
+class TTSSimpleBackend:
+    """Convenience base for backends that just call a CLI tool."""
+
+    name: str = ""
+    binary: str = ""
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return bool(shutil.which(cls.binary))
+
+    def speak(self, text: str, audio_path: str | None = None) -> bool:
+        raise NotImplementedError
+
+
+# ── Registry ──
+# Backends register here with priority order
+
+_registry: list[type[TTSBackend]] = []
+
+def register_backend(backend_cls: type[TTSBackend]) -> None:
+    """Register a TTS backend class."""
+    _registry.append(backend_cls)
+
+def get_available_backends() -> list[type[TTSBackend]]:
+    """Return registered backends that are available on this system."""
+    return [b for b in _registry if b.is_available()]
+
+
+# ── Default voices ──
 DEFAULT_VOICE = "en-GB-RyanNeural"
 DEFAULT_RATE = "+0%"
 DEFAULT_PITCH = "+0Hz"
