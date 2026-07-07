@@ -100,7 +100,11 @@ def check_tts(reporter: SetupReporter) -> bool:
                 if shutil.which(name):
                     backend = name
                     break
-        reporter.record("Text-to-Speech (TTS)", available, backend if available else "No backend found")
+        reporter.record(
+            "Text-to-Speech (TTS)",
+            available,
+            backend if available else "No backend found",
+        )
         return available
     except Exception as e:
         reporter.record("Text-to-Speech (TTS)", False, str(e))

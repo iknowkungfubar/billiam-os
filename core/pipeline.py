@@ -108,7 +108,9 @@ class CorePipeline:
         if tool_result is not None:
             # Feed tool result back to LLM for summarization
             messages.append({"role": "assistant", "content": response})
-            messages.append({"role": "user", "content": f"Tool output: {tool_result}\nSummarize naturally."})
+            messages.append({"role": "user", "content": (
+                f"Tool output: {tool_result}\nSummarize naturally."
+            )})
             final_response = self.llm.inference(messages)
         else:
             final_response = response
