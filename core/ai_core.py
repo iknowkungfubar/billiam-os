@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import logging
 
+from .adapters import build_pipeline
 from .billiam import (
     BILLIAM_PROFILE,
     get_catchphrase,
 )
-from .adapters import build_pipeline
 from .config import get_config_value, load_config
 
 # -- Configuration --
