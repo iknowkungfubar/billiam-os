@@ -116,8 +116,8 @@ class TestCLIParser:
 
     # --- main() subcommand dispatch ---
 
-    @patch("core.cli.AICore")
-    @patch("core.cli.setup_logging")
+    @patch("core.cli.main.AICore")
+    @patch("core.cli.main.setup_logging")
     def test_main_docs_subcommand(self, mock_logging, mock_core):
         """main() with 'docs' must dispatch to _handle_docs and return 0."""
         from core.cli import main
@@ -127,16 +127,14 @@ class TestCLIParser:
         assert result == 0
         mock_core.assert_not_called()
 
-    @patch("core.cli.AICore")
-    @patch("core.cli.setup_logging")
+    @patch("core.cli.main.AICore")
+    @patch("core.cli.main.setup_logging")
     @patch("core.tts.TTSModule")
-    @patch("core.cli.load_config")
-    @patch("core.cli._check_llm_port")
+    @patch("core.cli.handlers._check_llm_port")
     def test_main_check_subcommand(
-        self, mock_check_port, mock_load_config, mock_tts, mock_logging, mock_core
+        self, mock_check_port, mock_tts, mock_logging, mock_core
     ):
         """main() with 'check' must dispatch to _handle_check and return 0."""
-        mock_load_config.return_value = {"billiam": {"name": "Billiam"}, "llm": {}}
         mock_tts_instance = mock_tts.return_value
         mock_tts_instance._edge_available = True
         mock_tts_instance._piper_available = True
@@ -160,7 +158,7 @@ class TestCLIParser:
         assert ok is False
         assert "test-backend" in detail or "detected" in detail
 
-    @patch("core.cli.AICore")
+    @patch("core.cli.main.AICore")
     def test_main_once(self, mock_core):
         """main() with --once must call run_once."""
         from core.cli import main
@@ -171,7 +169,7 @@ class TestCLIParser:
         assert result == 0
         mock_core.return_value.run_once.assert_called_once_with("hello")
 
-    @patch("core.cli.AICore")
+    @patch("core.cli.main.AICore")
     def test_main_version(self, mock_core):
         """main() with --version must print version and exit."""
         from core.cli import main
