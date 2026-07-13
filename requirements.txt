@@ -16,7 +16,7 @@ pytest>=9.1.1,<10.0.0
 pytest-cov>=7.1.0,<8.0.0
 
 # ── Development ──────────────────────────────────────────────────────────────
-ruff>=0.15.20,<1.0.0
+ruff>=0.15.21,<1.0.0
 
 # ── Optional ─────────────────────────────────────────────────────────────────
 # espeak-ng      — Offline TTS fallback (system package: sudo pacman -S espeak-ng)
