@@ -6,8 +6,8 @@ which handle the first-run setup wizard output and checks.
 
 import os
 import socket
-import threading
 import tempfile
+import threading
 
 from core.setup_steps import (
     SetupReporter,
