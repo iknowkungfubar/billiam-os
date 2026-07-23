@@ -68,8 +68,10 @@ class SandboxExecutor:
             self.sandbox.validate_command(command)
             exit_code, stdout, stderr = self.sandbox.execute_safely(command)
             if exit_code != 0:
-                return f"Exit {exit_code}: {stderr[:500]}" if stderr else f"Exit {exit_code}"
-            return stdout[:1000] if stdout else "(completed with no output)"
+                msg = stderr[:500] if stderr else "(no stderr)"
+                return f"Exit code: {exit_code}: {msg}"
+            output = stdout[:1000] if stdout else "(completed with no output)"
+            return f"Exit code: {exit_code}: {output}"
         except GuardrailError as e:
             return f"[Guardrail blocked: {e}]"
 
@@ -163,14 +165,13 @@ def build_pipeline(
     if not outputs:
         outputs.append(LogOutputDriver())
 
-    system_prompt = system_prompt_injection(memory_summary=memory_layer.get_context_summary())
 
     pipeline = CorePipeline(
         llm=llm,
         executor=executor,
         memory=memory,
         outputs=outputs,
-        system_prompt=system_prompt,
+
     )
 
     return pipeline

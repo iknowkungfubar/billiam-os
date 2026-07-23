@@ -77,14 +77,18 @@ class CorePipeline:
         executor: ToolExecutor,
         memory: MemoryProvider,
         outputs: list[OutputDriver] | None = None,
-        system_prompt: str = "",
     ):
         self.llm = llm
         self.executor = executor
         self.memory = memory
         self.outputs = outputs or []
-        self.system_prompt = system_prompt
         self.conversation_history: list[dict] = []
+    @property
+    def system_prompt(self) -> str:
+        """Backward compat: return the pipeline's system prompt."""
+        from .billiam import system_prompt_injection
+        return system_prompt_injection(memory_summary=self.memory.get_context_summary())
+
 
     def process(self, user_input: str) -> str:
         """Run the full pipeline for a single user input.
@@ -100,20 +104,26 @@ class CorePipeline:
             {"role": "user", "content": user_input},
         ]
 
-        # 2. LLM inference
-        response = self.llm.inference(messages)
-
-        # 3. Parse and execute tool calls if present
-        tool_result = self._try_extract_tool(response)
-        if tool_result is not None:
-            # Feed tool result back to LLM for summarization
-            messages.append({"role": "assistant", "content": response})
-            messages.append({"role": "user", "content": (
-                f"Tool output: {tool_result}\nSummarize naturally."
-            )})
-            final_response = self.llm.inference(messages)
-        else:
-            final_response = response
+        # 2. LLM inference (with error fallback)
+        try:
+            response = self.llm.inference(messages)
+            tool_result = self._try_extract_tool(response)
+            if tool_result is not None:
+                # Feed tool result back to LLM for summarization
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "user", "content": (
+                    f"Tool output: {tool_result}\nSummarize naturally."
+                )})
+                try:
+                    final_response = self.llm.inference(messages)
+                except Exception as e:
+                    logger.error("LLM summarization failed after tool: %s", e)
+                    final_response = "I do apologise, sir, but the inference engine encountered an error during processing. The command was executed but the response could not be summarised."
+            else:
+                final_response = response
+        except Exception as e:
+            logger.error("LLM inference failed: %s", e)
+            final_response = "I do apologise, sir, but the inference engine is currently unavailable. Please ensure the llama-server or compatible LLM backend is running and try again."
 
         # 4. Record interaction in memory
         self.memory.record_interaction(user_input, final_response)

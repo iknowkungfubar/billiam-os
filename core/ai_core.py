@@ -242,3 +242,17 @@ class AICore:
             return self.pipeline.executor.execute(command)
         except Exception as e:
             return str(e)
+
+    @property
+    def conversation_history(self) -> list[dict]:
+        """Backward compat: return the pipeline's conversation history."""
+        return self.pipeline.conversation_history if hasattr(self.pipeline, 'conversation_history') else []
+
+    def _run_llm_inference(self, messages: list[dict], temperature: float | None = None) -> str:
+        """Backward compat: send messages to LLM and return response text."""
+        return self.pipeline.llm.inference(messages, temperature=temperature)
+
+    def run_once(self, prompt: str) -> str:
+        """Backward compat: alias for process_input."""
+        return self.process_input(prompt)
+
