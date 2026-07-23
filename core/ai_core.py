@@ -220,7 +220,10 @@ class AICore:
 
     def _build_system_prompt(self) -> str:
         """Backward compat: return the pipeline's system prompt."""
-        return self.pipeline.system_prompt
+        # Build system prompt from current memory state (for test compatibility)
+        from .billiam import system_prompt_injection
+        memory_summary = self.memory.get_context_summary()
+        return system_prompt_injection(memory_summary=memory_summary)
 
     def _parse_tool_call(self, ai_output: str) -> str | None:
         """Backward compat: extract TOOL: command from LLM output."""
