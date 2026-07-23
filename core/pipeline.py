@@ -87,47 +87,62 @@ class CorePipeline:
         self.conversation_history: list[dict] = []
 
     def process(self, user_input: str) -> str:
-        """Run the full pipeline for a single user input.
+            """Run the full pipeline for a single user input.
 
-        Returns the assistant's text response.
-        """
-        # 1. Build messages with memory context
-        context = self.memory.get_context_summary()
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "system", "content": f"Context: {context}"},
-            *self.conversation_history[-10:],  # last 10 turns
-            {"role": "user", "content": user_input},
-        ]
+            Returns the assistant's text response.
+            """
+            # 1. Build messages with memory context
+            context = self.memory.get_context_summary()
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "system", "content": f"Context: {context}"},
+                *self.conversation_history[-10:],  # last 10 turns
+                {"role": "user", "content": user_input},
+            ]
 
-        # 2. LLM inference
-        response = self.llm.inference(messages)
-
-        # 3. Parse and execute tool calls if present
-        tool_result = self._try_extract_tool(response)
-        if tool_result is not None:
-            # Feed tool result back to LLM for summarization
-            messages.append({"role": "assistant", "content": response})
-            messages.append({"role": "user", "content": (
-                f"Tool output: {tool_result}\nSummarize naturally."
-            )})
-            final_response = self.llm.inference(messages)
-        else:
-            final_response = response
-
-        # 4. Record interaction in memory
-        self.memory.record_interaction(user_input, final_response)
-        self.conversation_history.append({"role": "user", "content": user_input})
-        self.conversation_history.append({"role": "assistant", "content": final_response})
-
-        # 5. Deliver output through all drivers
-        for driver in self.outputs:
             try:
-                driver.deliver(final_response)
+                # 2. LLM inference
+                response = self.llm.inference(messages)
             except Exception as e:
-                logger.warning("Output driver %s failed: %s", driver.name(), e)
+                # Handle LLM connection errors gracefully
+                logger.warning(f"LLM inference failed: {e}")
+                # Generate apology response
+                final_response = (
+                    "I do apologise, sir, but I seem to have encountered an issue "
+                    "with my inference engine. Please ensure the llama-server is "
+                    "running and try again."
+                )
+            else:
+                # 3. Parse and execute tool calls if present
+                try:
+                    tool_result = self._try_extract_tool(response)
+                    if tool_result is not None:
+                        # Feed token result back to LLM for summarization
+                        messages.append({"role": "assistant", "content": response})
+                        messages.append({"role": "user", "content": (
+                            f"Tool output: {tool_result}\\\\nSummarize naturally."
+                        )})
+                        final_response = self.llm.inference(messages)
+                    else:
+                        final_response = response
+                except Exception as e:
+                    # If tool execution fails, use the original response
+                    logger.warning(f"Tool execution failed: {e}")
+                    final_response = response
 
-        return final_response
+            # 4. Record interaction in memory
+            self.memory.record_interaction(user_input, final_response)
+            self.conversation_history.append({"role": "user", "content": user_input})
+            self.conversation_history.append({"role": "assistant", "content": final_response})
+
+            # 5. Deliver output through all drivers
+            for driver in self.outputs:
+                try:
+                    driver.deliver(final_response)
+                except Exception as e:
+                    logger.warning("Output driver %s failed: %s", driver.name(), e)
+
+            return final_response
 
     def _try_extract_tool(self, text: str) -> str | None:
         """Extract and execute a tool command from LLM output.
