@@ -4,6 +4,7 @@ These adapters let the existing code work with CorePipeline without
 modifying the original classes. Each adapter implements one protocol
 from core/pipeline.py by delegating to the existing implementation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -157,6 +158,7 @@ def build_pipeline(
     if enable_tts:
         try:
             from .tts import TTSModule
+
             tts = TTSModule()
             outputs.append(TTSOutputDriver(tts))
         except Exception as e:
@@ -165,13 +167,11 @@ def build_pipeline(
     if not outputs:
         outputs.append(LogOutputDriver())
 
-
     pipeline = CorePipeline(
         llm=llm,
         executor=executor,
         memory=memory,
         outputs=outputs,
-
     )
 
     return pipeline

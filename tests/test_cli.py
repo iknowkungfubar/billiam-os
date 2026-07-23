@@ -111,6 +111,7 @@ class TestCLIParser:
     def test_handle_docs_returns_0(self):
         """_handle_docs must return 0 (success)."""
         from core.cli import _handle_docs
+
         result = _handle_docs(None)
         assert result == 0
 
@@ -131,9 +132,7 @@ class TestCLIParser:
     @patch("core.cli.main.setup_logging")
     @patch("core.tts.TTSModule")
     @patch("core.cli.handlers._check_llm_port")
-    def test_main_check_subcommand(
-        self, mock_check_port, mock_tts, mock_logging, mock_core
-    ):
+    def test_main_check_subcommand(self, mock_check_port, mock_tts, mock_logging, mock_core):
         """main() with 'check' must dispatch to _handle_check and return 0."""
         mock_tts_instance = mock_tts.return_value
         mock_tts_instance._edge_available = True
@@ -154,6 +153,7 @@ class TestCLIParser:
     def test_check_llm_port_no_listener(self):
         """_check_llm_port must return (False, ...) when nothing listens."""
         from core.cli import _check_llm_port
+
         ok, detail = _check_llm_port(19999, "test-backend")
         assert ok is False
         assert "test-backend" in detail or "detected" in detail

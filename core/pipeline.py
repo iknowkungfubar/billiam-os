@@ -4,6 +4,7 @@ Extracted from AICore to create testable seams between pipeline stages.
 Each stage is a protocol — inject different implementations for testing
 or to add new capabilities.
 """
+
 from __future__ import annotations
 
 import logging
@@ -83,12 +84,13 @@ class CorePipeline:
         self.memory = memory
         self.outputs = outputs or []
         self.conversation_history: list[dict] = []
+
     @property
     def system_prompt(self) -> str:
         """Backward compat: return the pipeline's system prompt."""
         from .billiam import system_prompt_injection
-        return system_prompt_injection(memory_summary=self.memory.get_context_summary())
 
+        return system_prompt_injection(memory_summary=self.memory.get_context_summary())
 
     def process(self, user_input: str) -> str:
         """Run the full pipeline for a single user input.
@@ -111,19 +113,30 @@ class CorePipeline:
             if tool_result is not None:
                 # Feed tool result back to LLM for summarization
                 messages.append({"role": "assistant", "content": response})
-                messages.append({"role": "user", "content": (
-                    f"Tool output: {tool_result}\nSummarize naturally."
-                )})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (f"Tool output: {tool_result}\nSummarize naturally."),
+                    }
+                )
                 try:
                     final_response = self.llm.inference(messages)
                 except Exception as e:
                     logger.error("LLM summarization failed after tool: %s", e)
-                    final_response = "I do apologise, sir, but the inference engine encountered an error during processing. The command was executed but the response could not be summarised."
+                    final_response = (
+                        "I do apologise, sir, but the inference engine encountered an "
+                        "error during processing. The command was executed but the "
+                        "response could not be summarised."
+                    )
             else:
                 final_response = response
         except Exception as e:
             logger.error("LLM inference failed: %s", e)
-            final_response = "I do apologise, sir, but the inference engine is currently unavailable. Please ensure the llama-server or compatible LLM backend is running and try again."
+            final_response = (
+                "I do apologise, sir, but the inference engine is currently "
+                "unavailable. Please ensure the llama-server or compatible LLM "
+                "backend is running and try again."
+            )
 
         # 4. Record interaction in memory
         self.memory.record_interaction(user_input, final_response)

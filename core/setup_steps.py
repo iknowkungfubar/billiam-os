@@ -4,6 +4,7 @@ The original _handle_setup in cli.py was a 220-line procedural monolith.
 Each step is now a standalone function returning a SetupResult.
 SetupReporter accumulates results and renders the summary.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,7 @@ from typing import Any
 @dataclass
 class SetupResult:
     """Result of a single setup step."""
+
     name: str
     ok: bool
     detail: str = ""
@@ -28,6 +30,7 @@ class SetupResult:
 @dataclass
 class SetupReporter:
     """Accumulates setup step results and renders them."""
+
     results: list[SetupResult] = field(default_factory=list)
 
     def record(self, name: str, ok: bool, detail: str = "") -> None:
@@ -90,6 +93,7 @@ def check_llm_backends(reporter: SetupReporter) -> bool:
 def check_tts(reporter: SetupReporter) -> bool:
     """Check TTS backend availability."""
     from .tts import TTSModule
+
     try:
         tts = TTSModule()
         available = tts.is_available
@@ -114,6 +118,7 @@ def check_tts(reporter: SetupReporter) -> bool:
 def check_stt(reporter: SetupReporter) -> bool:
     """Check STT and microphone availability."""
     from .stt import STTModule
+
     try:
         stt = STTModule()
         # Check for capture hardware
@@ -138,6 +143,7 @@ def check_stt(reporter: SetupReporter) -> bool:
 def create_config(reporter: SetupReporter, config_path: str) -> bool:
     """Create default config file if it doesn't exist."""
     from .config import DEFAULT_CONFIG, save_config
+
     try:
         if not os.path.exists(config_path):
             save_config(DEFAULT_CONFIG, config_path)
@@ -174,11 +180,13 @@ WantedBy=default.target
         # Enable and start the service
         subprocess.run(
             ["systemctl", "--user", "daemon-reload"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
         subprocess.run(
             ["systemctl", "--user", "enable", "billiam"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
         reporter.record("Systemd service installed", True, service_path)
         return True

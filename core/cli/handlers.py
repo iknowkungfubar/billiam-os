@@ -287,4 +287,5 @@ def _handle_setup(args: argparse.Namespace) -> int:
     Delegates to setup_steps module for individual step functions.
     """
     from ..setup_steps import run_setup_wizard
+
     return run_setup_wizard()
