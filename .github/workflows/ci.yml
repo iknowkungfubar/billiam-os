@@ -70,10 +70,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyyaml
 
+      - name: Install test dependencies
+        run: pip install pytest pytest-cov pytest-timeout
+
       - name: Test with pytest (coverage min 55%)
-        run: |
-          pip install pytest pytest-cov pytest-timeout
-          python -m pytest tests/ -q --cov=core --cov-report=term --cov-fail-under=55 --ignore=tests/test_tts.py -k "not test_main_check_subcommand" --timeout=120
+        run: python -m pytest tests/ -q --cov=core --cov-report=term --cov-fail-under=55 --ignore=tests/test_tts.py -k "not test_main_check_subcommand" --timeout=120
 
       - name: Check imports
         run: |
