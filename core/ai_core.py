@@ -201,6 +201,11 @@ class AICore:
     # without modification.
 
     @property
+    def conversation_history(self):
+        """Backward compat: return the pipeline's conversation history."""
+        return self.pipeline.conversation_history
+
+    @property
     def memory(self):
         """Backward compat: return the underlying AssistantMemoryLayer."""
         return self._memory_layer
