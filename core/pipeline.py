@@ -107,7 +107,11 @@ class CorePipeline:
                 # Handle LLM connection errors gracefully
                 logger.warning(f"LLM inference failed: {e}")
                 # Generate apology response
-                final_response = "I do apologise, sir, but I seem to have encountered an issue with my inference engine. Please ensure the llama-server is running and try again."
+                final_response = (
+                    "I do apologise, sir, but I seem to have encountered an issue "
+                    "with my inference engine. Please ensure the llama-server is "
+                    "running and try again."
+                )
             else:
                 # 3. Parse and execute tool calls if present
                 try:
@@ -136,7 +140,7 @@ class CorePipeline:
                 try:
                     driver.deliver(final_response)
                 except Exception as e:
-                    logger.warning(f"Output driver %s failed: %s", driver.name(), e)
+                    logger.warning("Output driver %s failed: %s", driver.name(), e)
 
             return final_response
 

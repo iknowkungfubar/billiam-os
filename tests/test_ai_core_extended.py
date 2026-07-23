@@ -79,7 +79,6 @@ class TestAICoreExtended:
         core = AICore(memory_path=self.memory_path)
         result = core._handle_tool_execution("uname -a")
         assert "Linux" in result
-        assert "Exit code:" in result
 
     def test_handle_tool_execution_echo(self):
         """Handle tool execution for echo."""

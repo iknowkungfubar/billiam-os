@@ -225,6 +225,10 @@ class AICore:
         memory_summary = self.memory.get_context_summary()
         return system_prompt_injection(memory_summary=memory_summary)
 
+    def _run_llm_inference(self, messages: list[dict], temperature: float | None = None) -> str:
+        """Backward compat: run LLM inference through the pipeline."""
+        return self.pipeline.llm.inference(messages, temperature=temperature)
+
     def _parse_tool_call(self, ai_output: str) -> str | None:
         """Backward compat: extract TOOL: command from LLM output."""
         for line in ai_output.split("\n"):
