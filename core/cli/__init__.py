@@ -8,23 +8,22 @@ Split from core/cli.py for maintainability:
   - daemon.py:   _daemonize, _cleanup_daemon, _run_daemon_event_loop, _check_llm_port
 """
 
-from .main import build_parser, main, setup_logging
-
 # Re-export sub-module symbols for backward compat (tests, core/__init__.py)
 from .daemon import _check_llm_port, _cleanup_daemon, _daemonize, _run_daemon_event_loop
 from .handlers import _handle_check, _handle_config, _handle_docs, _handle_setup, _handle_smoke_test
+from .main import build_parser, main, setup_logging
 
 __all__ = [
-    "build_parser",
-    "main",
-    "setup_logging",
     "_check_llm_port",
     "_cleanup_daemon",
     "_daemonize",
-    "_run_daemon_event_loop",
     "_handle_check",
     "_handle_config",
     "_handle_docs",
     "_handle_setup",
     "_handle_smoke_test",
+    "_run_daemon_event_loop",
+    "build_parser",
+    "main",
+    "setup_logging",
 ]
