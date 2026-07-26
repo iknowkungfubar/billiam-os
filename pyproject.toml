@@ -112,7 +112,6 @@ ignore = [
     "N806",
     "PERF203",
     "PERF401",
-    "CPY001",
     "PGH003",
     "PGH004",
     "PLR0917",
@@ -180,6 +179,7 @@ ignore = [
     "PTH101",
     "S101",
     "S108",
+    "CPY001",
 ]
 
 [tool.ruff.lint.pydocstyle]
