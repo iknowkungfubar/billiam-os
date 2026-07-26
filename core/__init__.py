@@ -47,7 +47,6 @@ __all__ = [
     "IntentClassification",
     "STTModule",
     "SecureExecutionSandbox",
-    "SecureExecutionSandbox",
     "TTSModule",
     "build_parser",
     "find_config_file",
