@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """
 core/tts - Billiam OS Text-to-Speech Package
 

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """
 core/memory.py
 Billiam OS — State Persistence and Personality Layer

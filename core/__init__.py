@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """
 Billiam OS — AI-Powered Linux Desktop Assistant.
 

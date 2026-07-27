@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """Extracted setup steps for billiam-os CLI.
 
 The original _handle_setup in cli.py was a 220-line procedural monolith.

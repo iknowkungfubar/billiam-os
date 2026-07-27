@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """core/tts/config.py - TTS module configuration constants.
 
 Split from core/tts.py (monolith) into the core/tts/ package for

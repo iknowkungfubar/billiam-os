@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """
 core/sandbox.py
 Billiam OS — Guardrail Execution Sandbox

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """Adapter classes wrapping existing billiam-os modules into pipeline protocols.
 
 These adapters let the existing code work with CorePipeline without

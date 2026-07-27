@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """core/tts/protocol.py - TTS backend protocol and registry.
 
 Split from core/tts.py (monolith) into the core/tts/ package for

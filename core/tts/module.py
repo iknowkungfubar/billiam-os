@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """core/tts/module.py - TTSModule class.
 
 Split from core/tts.py (monolith) into the core/tts/ package for

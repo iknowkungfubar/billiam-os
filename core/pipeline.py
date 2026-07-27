@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TurinTech Solutions
+# SPDX-License-Identifier: MIT
+
 """Pipeline protocols and orchestration for billiam-os.
 
 Extracted from AICore to create testable seams between pipeline stages.
