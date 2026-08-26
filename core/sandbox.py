@@ -28,6 +28,10 @@ All commands run through subprocess with strict timeout and resource limits.
 import re
 import subprocess
 
+# [TECH] Layer 1 uses regular-expression signatures for known destructive
+#        commands; a match denies execution before any subprocess starts.
+# [ELI5] These are hard no-go commands, like a red button with a cover over it,
+#        so dangerous operations are stopped immediately.
 # ── Layer 1: Banned Expression Patterns ──────────────────────────────────────
 # These patterns are EXPLICITLY blocked regardless of context.
 # If a command matches any of these, execution is denied immediately.
@@ -74,6 +78,10 @@ class GuardrailError(Exception):
     pass
 
 
+# [TECH] Layer 2 adds weighted evidence from keywords, targets, flags, and
+#        command names; the accumulated score maps to SAFE, SUSPICIOUS, or DANGEROUS.
+# [ELI5] If a command is not an exact banned pattern, we still look for warning
+#        signs and add them up before deciding how risky it is.
 # ── Layer 2: Intent Classification ──────────────────────────────────────────
 # Heuristic risk scoring for commands beyond simple pattern matching.
 # Scores: 0.0 (safe) → 1.0 (critical danger)
@@ -135,6 +143,10 @@ class IntentClassification:
         Returns:
             Tuple of (classification, score, reason).
         """
+        # [TECH] Normalize once and collect deferred checks so every matched risk
+        #        contributes to one explainable score and reason list.
+        # [ELI5] We make one lowercase copy, gather clues, and keep notes about why
+        #        a command looks risky.
         command_lower = command.lower()
         score = 0.0
         reasons = []
@@ -211,6 +223,10 @@ class IntentClassification:
                 )
             )
 
+        # [TECH] Evaluate all deferred matchers before applying thresholds; this
+        #        preserves cumulative evidence and produces an audit-friendly reason.
+        # [ELI5] We check every warning, not only the first one, so the final choice
+        #        explains what made the command look unsafe.
         # Apply all checks
         for weight, matcher, reason in checks:
             if matcher():
@@ -239,6 +255,10 @@ class SecureExecutionSandbox:
     def __init__(self, banned_expressions: list = BANNED_EXPRESSIONS):
         self.banned_expressions = banned_expressions
 
+    # [TECH] This deterministic pass is intentionally independent of heuristic
+    #        scoring, guaranteeing that explicit signatures cannot be overridden.
+    # [ELI5] The strict blacklist gets the first say and cannot be talked out of
+    #        blocking a known destructive command.
     def check_string_safety(self, command: str) -> bool:
         """Layer 1: Deterministic regex check against banned patterns.
 
@@ -253,6 +273,10 @@ class SecureExecutionSandbox:
                 return False
         return True
 
+    # [TECH] Privileged detection scans command tokens with word boundaries so
+    #        substrings do not trigger confirmation accidentally.
+    # [ELI5] This spots commands that need a human to say yes before they get extra
+    #        power, without mistaking a harmless word that merely contains one.
     def check_privileged(self, command: str) -> bool:
         """Check if a command requires human-in-the-loop confirmation.
 
@@ -267,6 +291,10 @@ class SecureExecutionSandbox:
                 return True
         return False
 
+    # [TECH] Validation composes the deterministic and scored checks, raising a
+    #        GuardrailError at the first blocking layer before execution is possible.
+    # [ELI5] Both safety nets inspect the command before it can touch the system,
+    #        and a failed net stops the command with a clear reason.
     def validate_command(self, command: str) -> None:
         """Run all guardrail checks against a command.
 
@@ -304,6 +332,10 @@ class SecureExecutionSandbox:
         Raises:
             GuardrailError: If the command fails guardrail checks.
         """
+        # [TECH] Guardrails run before shell invocation; subprocess output is
+        #        returned as data, while known OS failures become stable error tuples.
+        # [ELI5] Check the command first, then run it in a time-limited box and hand
+        #        back what happened without exposing a raw crash.
         # Run guardrail checks
         self.validate_command(command)
 
