@@ -91,6 +91,10 @@ class STTModule:
             self._vad_available,
         )
 
+    # [TECH] Model construction is deferred until the first transcription, so
+    #        importing and configuring STT does not allocate model memory.
+    # [ELI5] We wait to load the large speech model until someone actually needs
+    #        it, keeping startup light.
     def _get_model(self):
         """Lazy-load the whisper model."""
         if self._model is None:
@@ -121,6 +125,10 @@ class STTModule:
         except ImportError:
             return False
 
+    # [TECH] Hardware detection is memoized after the first probe; each capture
+    #        attempt then avoids a potentially blocking command lookup.
+    # [ELI5] We check for a microphone tool once and remember the result so we do
+    #        not repeat the same test every time Billiam listens.
     def _has_capture_hardware(self) -> bool:
         """Check if audio capture hardware is available without blocking.
 
@@ -154,6 +162,10 @@ class STTModule:
         Returns:
             Path to the recorded WAV file.
         """
+        # [TECH] Fail before creating a capture process when neither supported
+        #        command exists, providing a deterministic error path.
+        # [ELI5] If there is no way to hear anything, stop early with a useful
+        #        explanation instead of waiting for a microphone that is not there.
         if not self._has_capture_hardware():
             raise RuntimeError(
                 "No audio capture backend available. "
@@ -189,10 +201,14 @@ class STTModule:
             ],
         ]
 
+        # [TECH] Capture backends are ordered PipeWire then ALSA; each candidate
+        #        must produce a non-trivial file before it is accepted.
+        # [ELI5] Try the newer microphone path first, then the older one, and only
+        #        keep a recording that contains enough sound data to be useful.
         for cmd_template in capture_cmds:
             try:
                 if "parec" in cmd_template[0]:
-                    # parec outputs raw PCM — capture it and wrap in WAV
+                    # parec outputs raw PCM - capture it and wrap in WAV
                     raw_file = tmp_path.replace(".wav", ".raw")
                     proc = subprocess.Popen(
                         cmd_template,
@@ -247,6 +263,10 @@ class STTModule:
                     except OSError:
                         pass
 
+        # [TECH] Reaching this point means every available capture backend either
+        #        failed, timed out, or produced an unusably small recording.
+        # [ELI5] None of the microphone helpers made a real recording, so report
+        #        one clear failure instead of returning broken audio.
         # If we got here, all capture methods failed
         raise RuntimeError(
             "No audio capture backend available. Install arecord (alsa-utils) or parec (pipewire)"
@@ -274,6 +294,9 @@ class STTModule:
                 vad_filter=self._vad_available,
             )
 
+            # [TECH] Materialize the lazy segment iterator before trimming so the
+            #        caller receives one normalized string regardless of segment count.
+            # [ELI5] Join all the little pieces Whisper heard into one tidy sentence.
             text = " ".join(segment.text for segment in segments)
             text = text.strip()
             logger.info(
@@ -299,6 +322,11 @@ class STTModule:
             Transcribed text, or empty string on failure.
         """
         try:
+            # [TECH] The temporary WAV is deleted after transcription on the
+            #        success path; capture and transcription failures are normalized
+            #        to an empty result for callers.
+            # [ELI5] Recordings are temporary: use one to understand the words,
+            #        then throw it away so old microphone data does not pile up.
             audio_file = self._capture_audio(duration=duration)
             text = self.transcribe(audio_file)
             # Clean up
@@ -315,6 +343,10 @@ class STTModule:
             logger.error("Listen failed: %s", e)
             return ""
 
+    # [TECH] Matching is case-insensitive and accepts both a prefix and an
+    #        interior occurrence, making recognition tolerant of transcription text.
+    # [ELI5] We listen for the special name in any capitalization, even if Whisper
+    #        puts a few words before it.
     def detect_wake_word(self, text: str) -> bool:
         """Check if transcribed text contains a wake word.
 
@@ -346,6 +378,10 @@ class STTModule:
         text_lower = text.lower().strip()
         for wake_word in self.wake_words:
             if text_lower.startswith(wake_word):
+                # [TECH] Slice using the original text length, then strip common
+                #        punctuation so the callback receives only the command.
+                # [ELI5] Take away the name and the little comma or space after it,
+                #        leaving the words Billiam should act on.
                 # Remove the wake word and any following punctuation/space
                 after = text[len(wake_word) :].strip().lstrip(",.!?:; ")
                 return after
@@ -371,6 +407,10 @@ class STTModule:
             interval: Check interval in seconds.
             stop_event: Event to signal stopping.
         """
+        # [TECH] The loop uses _listening as its local stop flag and optionally
+        #        honors an external Event, while transient errors back off briefly.
+        # [ELI5] Keep listening until asked to stop, pause after problems, and do
+        #        not let one bad recording end the whole listening service.
         self._listening = True
         logger.info(
             "Listening loop started (wake=%s, interval=%.1fs)",

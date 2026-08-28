@@ -105,6 +105,10 @@ class TTSModule:
             self.voice,
         )
 
+    # [TECH] Backend probes are cached during construction so speech selection
+    #        does not repeatedly spawn processes or import optional packages.
+    # [ELI5] We check which voices are available once, then remember the answer
+    #        so asking Billiam to speak stays quick.
     # ── Backend Detection ─────────────────────────────────────────────────────
 
     @staticmethod
@@ -145,6 +149,10 @@ class TTSModule:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
 
+    # [TECH] Piper paths and model state are kept separate from backend
+    #        availability because an installed CLI can still lack its model.
+    # [ELI5] Having the Piper program is not enough; it also needs its voice
+    #        files, so this section tracks both pieces.
     # ── Piper Model Management ────────────────────────────────────────────────
 
     @staticmethod
@@ -194,6 +202,10 @@ class TTSModule:
         model_path = self._get_piper_model_path()
         config_path = self._get_piper_config_path()
 
+        # [TECH] The existing-file fast path avoids network access; otherwise
+        #        the cache directory is created before downloading both assets.
+        # [ELI5] Reuse the voice if it is already here, and make a place for it
+        #        before fetching it when it is missing.
         if os.path.exists(model_path):
             logger.info("Piper model already cached: %s", model_path)
             self._piper_model_ready = True
@@ -219,12 +231,20 @@ class TTSModule:
 
         except Exception as e:
             logger.error("Failed to download Piper model: %s", e)
+            # [TECH] Remove either asset after any download failure so a partial
+            #        cache cannot be mistaken for a usable model later.
+            # [ELI5] If the download breaks halfway, throw away the incomplete
+            #        pieces so the next attempt starts with a clean slate.
             # Clean up partial downloads
             for path in [model_path, config_path]:
                 if os.path.exists(path):
                     os.unlink(path)
             return False
 
+    # [TECH] Playback tries compatible system clients in descending preference;
+    #        missing clients and timeouts are non-fatal and advance the fallback.
+    # [ELI5] We try several speakers, moving to the next one if the first is
+    #        unavailable, instead of giving up immediately.
     # ── Audio Playback ────────────────────────────────────────────────────────
 
     def _play_audio(self, audio_file: str) -> bool:
@@ -275,6 +295,10 @@ class TTSModule:
         logger.error("No audio player available to play TTS output.")
         return False
 
+    # [TECH] Each backend returns a boolean and absorbs backend-specific errors,
+    #        allowing the public method to enforce one consistent fallback chain.
+    # [ELI5] Every voice engine reports success or failure in the same simple way,
+    #        so Billiam can try another voice without crashing.
     # ── Speaking Backends ─────────────────────────────────────────────────────
 
     def _speak_edge(self, text: str) -> bool:
@@ -291,6 +315,10 @@ class TTSModule:
 
             communicate = edge_tts.Communicate(text, self.voice, rate=self.rate, pitch=self.pitch)
 
+            # [TECH] edge-tts writes to a named temporary file because playback
+            #        consumes a path; the file is removed after the playback attempt.
+            # [ELI5] The online voice makes a temporary audio recording, tries to
+            #        play it, and then cleans up the temporary recording.
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                 tmp_path = tmp.name
 
@@ -324,6 +352,11 @@ class TTSModule:
                 if not self.download_piper_model():
                     return False
 
+            # [TECH] Piper emits raw 16-bit PCM into aplay through a pipe; both
+            #        processes are bounded by waits so a hung backend cannot block
+            #        the caller indefinitely.
+            # [ELI5] Piper makes sound data and hands it straight to the speaker,
+            #        with a time limit in case either program gets stuck.
             # Run: echo "text" | piper --model model.onnx --output-raw | aplay -r 22050 -f S16_LE
             try:
                 piper_proc = subprocess.Popen(
@@ -400,6 +433,10 @@ class TTSModule:
         logger.error("espeak-ng failed for all voices")
         return False
 
+    # [TECH] The public API validates input, then selects the highest-priority
+    #        available backend and falls through only after a concrete failure.
+    # [ELI5] This is the front door: it ignores empty requests and tries the best
+    #        available voice before using simpler backups.
     # ── Public API ────────────────────────────────────────────────────────────
 
     def speak(self, text: str, force_offline: bool = False) -> bool:
@@ -422,6 +459,10 @@ class TTSModule:
 
         logger.info("Speaking: %s", text[:80])
 
+        # [TECH] Online edge-tts is skipped for forced-offline requests; a false
+        #        result deliberately proceeds to the local backends.
+        # [ELI5] Use the nicest online voice when allowed, but keep a local route
+        #        ready when the internet is forbidden or unavailable.
         # Try edge-tts first (online, highest quality)
         if self.use_edge and not force_offline and self._edge_available:
             if self._speak_edge(text):
